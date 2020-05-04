@@ -1,5 +1,5 @@
 ## Nazwa
-**Konwersja przesłanej części pliku **
+**Konwersja przesłanej części pliku**
 
 ## Aktor główny
 Worker
@@ -29,7 +29,7 @@ Otrzymanie fragmentu pliku od serwera centralnego
 
 ## Wyjątki
 ###### Nie ma połączenia z serwerem
-1. System informuje użytkownika, że ze względu na błąd połaczenia sieciowego nie jest w stanie przeprowadzić konwersji
+1. System informuje użytkownika, że ze względu na błąd połączenia sieciowego nie jest w stanie przeprowadzić konwersji
 2. Po upłynięciu ustalonego timeout, w którym sprawdzana jest możliwość połączenia, program kończy działanie
 ###### Użytkownik przerywa pracę z systemem w czasie przetwarzania
 1. Następuje czyszczenie zawartości programu. Program kończy swoje działanie.
