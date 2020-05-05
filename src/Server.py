@@ -22,8 +22,8 @@ class Server:
 
     def convertFile (self):
         fileName = os.path.basename(self.mainFile.location).split('.')[0]
-        conv = Converter(ffmpeg_path="C:\\Users\\HP\\Downloads\\ffmpeg\\bin\\ffmpeg.exe",
-                         ffprobe_path="C:\\Users\\HP\\Downloads\\ffmpeg\\bin\\ffprobe.exe")
+        conv = Converter(ffmpeg_path="/usr/bin/ffmpeg",
+                         ffprobe_path="/usr/bin/ffprobe")
         convert = conv.convert(self.mainFile.location, self.mainFile.saveLocation + '\\' + fileName + "_converted video." + self.mainFile.fileExtension, {
             'format': self.mainFile.fileExtension,
             'audio': {
