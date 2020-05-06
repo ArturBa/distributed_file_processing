@@ -8,30 +8,30 @@ Serwer
 Worker
 
 ## Opis
-Serwer po otrzymaniu komunikatu o gotowości Workera do wysłania pliku po konwersji przyjmuje pliki i scala je w jedną całość.
+Serwer po otrzymaniu komunikatu o gotowości Workera do wysłania pliku po konwersji przyjmuje pliki [`convFile`] i scala je w jedną całość [`mergeSplitedFiles()`]
 
 ## Wyzwalacz
 Komunikat od poszczególnych węzłów rozproszonych.
 
 ## Warunki początkowe
-1. Serwer ma połączenie ze zdalnymi węzłami.
-2. Każdy z węzłów zakończył konwersję przydzielonej mu części pliku.
+1. Serwer ma połączenie ze zdalnymi węzłami [`Worker`].
+2. Każdy z węzłów [`workerList`] zakończył konwersję przydzielonej mu części pliku.
 
 ## Warunki końcowe
-1. System jest w stanie scalić gotowy plik po konwersji
+1. System jest w stanie scalić gotowy plik po konwersji [`mergeSplitedFiles()`]
 
 ## Przepływ normalny
-1. Serwer w trybie nasłuchiwania oczekuje na komunikaty od zdalnych węzłów.
-2. Po otrzymaniu komunikatu przyjmuje porcję danych od każdego z węzłów.
-3. Dane przechowywane są w nowym archiwum.
-4. System scala wszystkie otrzymane pliki.
+1. Serwer w trybie nasłuchiwania oczekuje na komunikaty od zdalnych węzłów [`checkWorkers()`].
+2. Po otrzymaniu komunikatu przyjmuje porcję danych [`convFile`] od każdego z węzłów.
+3. Dane przechowywane są aż do otrzymania wszystich części [`convertedFiles`].
+4. System scala wszystkie otrzymane pliki [`mergeSplitedFiles()`].
 5. System zwraca odpowiedź dot. statusu operacji do użytkownika
 
 ## Wyjątki
 ###### Nie ma połączenia z którymś z węzłów
-1. System informuje użytkownika, że ze względu na błąd połaczenia sieciowego nie jest w stanie przeprowadzić konwersji
+1. System informuje użytkownika [`showError()`], że ze względu na błąd połaczenia sieciowego nie jest w stanie przeprowadzić konwersji
 2. Po upłynięciu ustalonego timeout, w którym sprawdzana jest możliwość połączenia, program kończy działanie
 ###### Użytkownik przerywa pracę z systemem w czasie przetwarzania
-1. Następuje czyszczenie zawartości programu. Program kończy swoje działanie.
+1. Następuje czyszczenie zawartości programu [`clearData()`]. Program kończy swoje działanie.
 ###### Błąd systemu
-1. System informuje użytkownika o błędzie i prosi o ponowienie próby za kilka minut.
+1. System informuje użytkownika o błędzie [`showError()`] i prosi o ponowienie próby za kilka minut.

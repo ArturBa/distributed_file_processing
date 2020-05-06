@@ -5,27 +5,27 @@
 Użytkownik
 
 ## Aktor pomocniczy
-Klasa obsługująca linię poleceń
+Klasa obsługująca linię poleceń [`UserCLI`]
 
 ## Opis
-Użytkownik przesyła do systemu wybrany plik, wybiera docelowy format i rozdzielczość, system poprzez odpowiedni status i komunikat powiadamia o wyniku operacji.
+Użytkownik przesyła do systemu wybrany plik, wybiera docelowy format i rozdzielczość, system poprzez odpowiedni status i komunikat powiadamia o wyniku operacji [`FileData`].
 
 ## Wyzwalacz
 Użytkownik rozpoczyna przesyłanie pliku do systemu poprzez wpisanie odpowiedniego polecenia wraz z wymaganymi opcjami.
 
 ## Warunki początkowe
-1. Użytkownik ma połączenie z serwerem nadzorczym.
-2. Użytkownik wybiera plik wejściowy o właściwym rozszerzeniu
-3. Użytkownik wybiera właściwe opcje konwersji
+1. Użytkownik ma połączenie z serwerem nadzorczym [`Server`].
+2. Użytkownik wybiera plik wejściowy o właściwym rozszerzeniu [`fileExtension`]
+3. Użytkownik wybiera właściwe opcje konwersji [`resolution`]
 
 ## Warunki końcowe
 1. System jest w stanie przetworzyć żądanie konwersji
 
 ## Przepływ normalny
 1. Użytkownik w linii poleceń uruchamia program.
-2. Użytkownik wybiera wejściowy program do konwersji.
-3. Użytkownik wybiera opcje konwersji.
-4. System przetwarza żądanie.
+2. Użytkownik wybiera wejściowy plik do konwersji [`location`].
+3. Użytkownik wybiera opcje konwersji [`fileExtension`] [`resolution`].
+4. System przetwarza żądanie [`convertFile()`].
 5. System zwraca odpowiedź dot. statusu operacji załadowania pliku.
 
 ## Wyjątki
@@ -34,7 +34,7 @@ Użytkownik rozpoczyna przesyłanie pliku do systemu poprzez wpisanie odpowiedni
 2. Użytkownik może wybrać inny plik.
 
 ###### Użytkownik wpisuje za duże albo za małe wartości rozdzielczości docelowej
-1. System informuje użytkownika, że rozdzielczość docelowa jest nieprawidłowa (komunikat błędu pokazuje przedziały, w jakich musi się zawrzeć rozdzielczość).
+1. System informuje użytkownika, że rozdzielczość docelowa [resolution] jest nieprawidłowa (komunikat błędu pokazuje przedziały, w jakich musi się zawrzeć rozdzielczość).
 2. Użytkownik może wpisać inne wartości rozdzielczości.
 
 ###### Użytkownik przerywa pracę z systemem w czasie przetwarzania
