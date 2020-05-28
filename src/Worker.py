@@ -3,7 +3,8 @@ from multiprocessing.connection import Client, Listener
 from os import getpid
 import time
 
-address = ('localhost' ,8080)
+send_address = ('localhost' ,8080)
+listener_address = ('localhost', 8081)
 class Worker:
     def __init__(self, pid = None, qsize = 0, listener = None, client = None):
         self._conversion_files = queue.Queue(maxsize = qsize)
@@ -11,12 +12,12 @@ class Worker:
         if listener is not None:
             self._client = client
         else:
-            self._client = Client(address)
+            self._client = Client(send_address)
         if client is not None:
             self._listener = listener
         else:
-            self._listener = Listener(address)
-        if pid = None:
+            self._listener = Listener(listener_address)
+        if pid is None:
             self._pid = getpid()
         else:
             self._pid = pid
@@ -82,6 +83,7 @@ class Worker:
 
 if __name__ == '__main__':
     worker = Worker()
+    worker._client.send({'key':0})
     #worker.connect_to_server()
     #print(worker._pid)    
         
