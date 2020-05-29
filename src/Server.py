@@ -1,21 +1,22 @@
 import subprocess
 import sys
-#from converter import Converter
+from converter import Converter
 from UserCLI import *
 from Worker import *
 import time
 import socket
 import threading
 
+client = socket.socket()
 host = '127.0.0.1'
 port = 8080
-client = socket.socket()
-
+ThreadCount = 0
 try:
     client.bind((host, port))
 except socket.error as e:
     print(str(e))
-    
+
+print('Waitiing for a Connection..')
 client.listen(5)
 
 def parse_raw_input(msg):
@@ -27,17 +28,17 @@ def parse_raw_output(msg):
 	return pickle.dumps(msg)
 	
 class Server:
-    def __init__ (self, mainFile, toConvertFiles = None, workerList = None, fileData = None):
+    def __init__ (self, mainFile, toConvertFiles = None, workerList = [], fileData = None):
         self.mainFile = mainFile
         self.toConvertFiles = toConvertFiles
         self.workerList = workerList
         self.fileData = fileData
 
-    def connect(self):
-        try:
-            client.accept()
-        except socket.error as e:
-            print(str(e))
+    #def connect(self):
+        #try:
+            #client.accept()
+        #except socket.error as e:
+            #print(str(e))
             
     def addNewWorker(self, worker = None):
         if worker is not None:
@@ -46,13 +47,18 @@ class Server:
                 
     def new_worker_connection(self, connection):
         while True:
-            msg = client.recv()
+            msg = connection.recv(1024)
             msg = parse_raw_input(msg)
+            print(msg)
             if self.parseJoinMessage(msg):
                 worker = Worker(pid = msg['pid'], qsize = msg['qsize'])
-                if not self.checkIfWorkerAlreadyAdded():
+                if not self.checkIfWorkerAlreadyAdded(worker):
                     self.addNewWorker(worker)
-                    client.send(self.getJoinAcceptMsg(msg))
+                    print("succesfully added new worker")
+                    msg = self.getJoinAcceptMsg(msg)
+                    msg = parse_raw_output(msg)
+                    connection.sendall(msg)
+                    break
             elif self.parseFreeQSizeRequest(msg):
                 pass
          
@@ -66,8 +72,10 @@ class Server:
         while True:
             print("Checking workers")
             _client, address = client.accept()
-            print("Connected to {client} on address {address}")
-            new_thread = threading.Thread(target = self.new_worker_connection, args = (_client))
+            print("Connected to {} on address {}".format(_client, address))
+            new_thread = threading.Thread(target = self.new_worker_connection, args = (_client, ))
+            new_thread.start()
+            new_thread.join()
 
     def parseJoinMessage(self,msg):
         return msg['type'] == 'join'
@@ -140,9 +148,9 @@ user.setFileData()
 server = Server(user.fileData)
 listener_thread = threading.Thread(server.checkWorkers())
 listener_thread.start()
-#if server.splitFile():
-    #print("File successfully splitted")
-#else:
-    #print("Error while splitting file")
-    #sys.exit(-1)
-#server.convertFile()
+if server.splitFile():
+    print("File successfully splitted")
+else:
+    print("Error while splitting file")
+    sys.exit(-1)
+server.convertFile()

@@ -1,22 +1,31 @@
 import queue
-from multiprocessing.connection import Client, Listener
+import socket, pickle
 from os import getpid
 import time
+import threading
 
-send_address = ('localhost' ,8080)
-listener_address = ('localhost', 8081)
+lock = threading.Lock()
+
+host = '127.0.0.1'
+port = 8080
+client = socket.socket()
+try:
+    client.connect((host, port))
+except socket.error as e:
+    print(str(e))
+    
+def parse_raw_input(msg):
+	'''De-serializing raw socket message to python object format'''
+	return pickle.loads(msg)
+	
+def parse_raw_output(msg):
+	'''Serializing python object to raw socket message'''
+	return pickle.dumps(msg)
+
 class Worker:
     def __init__(self, pid = None, qsize = 0, listener = None, client = None):
         self._conversion_files = queue.Queue(maxsize = qsize)
         self._max_qsize = qsize
-        if listener is not None:
-            self._client = client
-        else:
-            self._client = Client(send_address)
-        if client is not None:
-            self._listener = listener
-        else:
-            self._listener = Listener(listener_address)
         if pid is None:
             self._pid = getpid()
         else:
@@ -38,8 +47,8 @@ class Worker:
         self._free_qsize = free
 
     def get_join_msg(self):
-        return {'type':'join_server',
-                'id':self._pid,
+        return {'type':'join',
+                'pid':self._pid,
                 'qsize':self.get_qsize()}
 
     def parse_server_join_answer(self,msg):
@@ -67,23 +76,57 @@ class Worker:
         while time.time() < start_time + timeout:
             msg = self._listener.recv()
             if self.parse_server_free_space_request(msg):
-                self._client.send(self.get_free_space_msg())
+                self._client.sendall(self.get_free_space_msg())
                 break
 
-    def connect_to_server(self, timeout=0):
-        start_time = time.time()
-        #self._client = Client(address)
-        self._client.send(self.get_join_msg())
-        while time.time() < start_time + timeout:
-            msg = self._listener.recv()
-            if self.parse_server_join_answer(msg):
-                self._connected = True
-                break
-                
+    def connect_to_server(self):
+    	msg = self.get_join_msg()
+    	msg = parse_raw_output(msg)
+    	client.sendall(msg)
+        
+    def listen(self):
+    	while True:
+            try:
+                msg = client.recv(1024)
+                msg = parse_raw_input(msg)
+                if self.parse_server_join_answer(msg):
+                    self._connected = True
+                    print("Connection from server established")
+                elif self.parse_server_free_space_request(msg):
+                    self.send_free_space_request(msg)
+                elif self.parse_file_data(msg):
+                    self.append_new_file(msg)
+                else:
+                    print("No response from server")
+            except EOFError as e:
+                continue
+    def append_new_file(self, msg):
+    	try:
+    		lock.acquire()
+    		self._conversion_files.put(msg['filedata'])
+    		lock.release()
+    	except Exception as e:
+    		print(e)
+    	finally:
+    		lock.release()
+    		
+    def check_for_files_to_process(self,msg):
+    	while True:
+    		try:
+    			if not self._confersion_files.empty():
+    				lock.acquire()
+    				fileData = self._conversion_files.get()
+    				lock.release()
+    				thread = threading.Thread(target = self.process_new_file, args = (fileData))
+    		except Exception as e:
+    			print(e)
+    		finally:
+    			lock.release()
 
 if __name__ == '__main__':
     worker = Worker()
-    worker._client.send({'key':0})
-    #worker.connect_to_server()
-    #print(worker._pid)    
+    time.sleep(5)
+    worker.connect_to_server()
+    listener_thread = threading.Thread(target = worker.listen())
+    listener_thread.start()  
         
