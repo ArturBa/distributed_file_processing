@@ -7,7 +7,7 @@ import threading
 lock = threading.Lock()
 
 host = '127.0.0.1'
-port = 8092
+port = 8080
 client = socket.socket()
 try:
     client.connect((host, port))

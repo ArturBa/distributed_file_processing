@@ -9,7 +9,7 @@ import threading
 
 client = socket.socket()
 host = '127.0.0.1'
-port = 8092
+port = 8080
 ThreadCount = 0
 try:
     client.bind((host, port))
