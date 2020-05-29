@@ -6,6 +6,7 @@ from Worker import *
 import time
 import socket
 import threading
+import select
 
 client = socket.socket()
 host = '127.0.0.1'
@@ -18,6 +19,7 @@ except socket.error as e:
 
 print('Waitiing for a Connection..')
 client.listen(5)
+read_list = [client]
 
 def parse_raw_input(msg):
 	'''De-serializing raw socket message to python object format'''
@@ -65,6 +67,7 @@ class Server:
                     #print("sending worker queue size message")
             elif self.parseFreeQSizeRequest(msg):
                 print("got queue size answer from worker")
+                return
          
     def checkIfWorkerAlreadyAdded(self, worker):
         for i in self.workerList:
@@ -72,14 +75,40 @@ class Server:
                 return True
         return False
         
-    def checkWorkers(self):
-        while True:
-            print("Checking workers")
-            _client, address = client.accept()
-            print("Connected to {} on address {}".format(_client, address))
-            new_thread = threading.Thread(target = self.new_worker_connection, args = (_client, ))
-            new_thread.daemon = True
-            new_thread.start()
+    def checkWorkers(self, timeout=10):
+        start = time.time()
+        while time.time() < start+ timeout:
+            readable, writable, errored = select.select(read_list, [], [])
+            for s in readable:
+                if s is client:
+                    print("Checking workers")
+                    _client, address = client.accept()
+                    read_list.append(_client)
+                    print("Connected to {} on address {}".format(_client, address))
+                    #new_thread = threading.Thread(target = self.new_worker_connection, args = (_client, ))
+                    #new_thread.daemon = True
+                    #new_thread.start()
+                else:
+                    data = s.recv(1024)
+                    if data:
+                        msg = parse_raw_input(data)
+                        if self.parseJoinMessage(msg):
+                            worker = Worker(pid = msg['pid'], qsize = msg['qsize'])
+                            if not self.checkIfWorkerAlreadyAdded(worker):
+                                self.addNewWorker(worker)
+                                print("succesfully added new worker")
+                                msg = self.getJoinAcceptMsg(msg)
+                                msg = parse_raw_output(msg)
+                                print("sending join accept message")
+                                s.send(msg)
+                            elif self.parseFreeQSizeRequest(msg):
+                                print("got queue size answer from worker")
+                                return
+                        else:
+                            s.close()
+                            read_list.remove(s)
+                        
+        return
 
     def parseJoinMessage(self,msg):
         return msg['type'] == 'join'
@@ -151,10 +180,7 @@ class Server:
 user = UserCLI()
 user.setFileData()
 server = Server(user.fileData)
-listener_thread = threading.Thread(server.checkWorkers())
-listener_thread.daemon = True
-listener_thread.start()
-server.new_worker_connection(client)
+server.checkWorkers(10)
 print("Got control")
 if server.splitFile():
     print("File successfully splitted")

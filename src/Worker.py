@@ -131,6 +131,5 @@ if __name__ == '__main__':
     time.sleep(5)
     worker.connect_to_server()
     listener_thread = threading.Thread(target = worker.listen())
-    listener_thread.daemon= True
     listener_thread.start()  
         
