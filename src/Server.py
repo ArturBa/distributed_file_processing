@@ -9,7 +9,7 @@ import threading
 
 client = socket.socket()
 host = '127.0.0.1'
-port = 8080
+port = 8092
 ThreadCount = 0
 try:
     client.bind((host, port))
@@ -57,10 +57,14 @@ class Server:
                     print("succesfully added new worker")
                     msg = self.getJoinAcceptMsg(msg)
                     msg = parse_raw_output(msg)
-                    connection.sendall(msg)
-                    break
+                    print("sending join accept message")
+                    connection.send(msg)
+                    #msg = self.getWorkerQSizeRequest(worker)
+                    #msg = parse_raw_output(msg)
+                    #connection.send(msg)
+                    #print("sending worker queue size message")
             elif self.parseFreeQSizeRequest(msg):
-                pass
+                print("got queue size answer from worker")
          
     def checkIfWorkerAlreadyAdded(self, worker):
         for i in self.workerList:
@@ -74,8 +78,8 @@ class Server:
             _client, address = client.accept()
             print("Connected to {} on address {}".format(_client, address))
             new_thread = threading.Thread(target = self.new_worker_connection, args = (_client, ))
+            new_thread.daemon = True
             new_thread.start()
-            new_thread.join()
 
     def parseJoinMessage(self,msg):
         return msg['type'] == 'join'
@@ -86,18 +90,19 @@ class Server:
                 'result':'accepted'}
     
     def getWorkerQSizeRequest(self, worker):
-        return {'type': 'free_space_reques',
+        return {'type': 'free_space_request',
                 'pid': worker.get_pid()}
 
     def sendFreeQSizeRequest(self):
         for worker in self.workerList:
-            self._client.send(self.getWorkerQSizeRequest(worker))
+            msg = self.getWorkerQSizeRequest(worker)
+            self._client.send()
 
     def parseFreeQSizeRequest(self, msg):
         if msg['type'] == 'free_space_answer':
             for worker in self.workerList:
                 if msg['pid'] == worker.get_pid():
-                    worker.set_free_qsize(msg['qsize'])
+                    worker.set_free_qsize(msg['free_space'])
                     return True
         else:
             return False
@@ -147,7 +152,10 @@ user = UserCLI()
 user.setFileData()
 server = Server(user.fileData)
 listener_thread = threading.Thread(server.checkWorkers())
+listener_thread.daemon = True
 listener_thread.start()
+server.new_worker_connection(client)
+print("Got control")
 if server.splitFile():
     print("File successfully splitted")
 else:

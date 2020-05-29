@@ -7,7 +7,7 @@ import threading
 lock = threading.Lock()
 
 host = '127.0.0.1'
-port = 8080
+port = 8092
 client = socket.socket()
 try:
     client.connect((host, port))
@@ -76,13 +76,13 @@ class Worker:
         while time.time() < start_time + timeout:
             msg = self._listener.recv()
             if self.parse_server_free_space_request(msg):
-                self._client.sendall(self.get_free_space_msg())
+                self._client.send(self.get_free_space_msg())
                 break
 
     def connect_to_server(self):
     	msg = self.get_join_msg()
     	msg = parse_raw_output(msg)
-    	client.sendall(msg)
+    	client.send(msg)
         
     def listen(self):
     	while True:
@@ -92,14 +92,17 @@ class Worker:
                 if self.parse_server_join_answer(msg):
                     self._connected = True
                     print("Connection from server established")
-                elif self.parse_server_free_space_request(msg):
-                    self.send_free_space_request(msg)
+                    msg = self.get_free_space_msg()
+                    msg = parse_raw_output(msg)
+                    client.send(msg)
+                    print("Free space free_space_request received and answer sent")
                 elif self.parse_file_data(msg):
                     self.append_new_file(msg)
                 else:
                     print("No response from server")
             except EOFError as e:
                 continue
+            
     def append_new_file(self, msg):
     	try:
     		lock.acquire()
@@ -128,5 +131,6 @@ if __name__ == '__main__':
     time.sleep(5)
     worker.connect_to_server()
     listener_thread = threading.Thread(target = worker.listen())
+    listener_thread.daemon= True
     listener_thread.start()  
         
