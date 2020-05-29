@@ -1,6 +1,7 @@
 import subprocess
 import sys
-from converter import Converter
+import os
+import math
 from UserCLI import *
 from Worker import *
 import time
@@ -67,7 +68,7 @@ class Server:
                     #print("sending worker queue size message")
             elif self.parseFreeQSizeRequest(msg):
                 print("got queue size answer from worker")
-                return
+                break
          
     def checkIfWorkerAlreadyAdded(self, worker):
         for i in self.workerList:
@@ -146,8 +147,41 @@ class Server:
         #return len(any[(worker._free_qsize > 0) for worker in self.workerList])
         return 1
 
-    def splitFile (self):
-        cmd = ['python', 'videoSplit.py', '-f', self.mainFile.location, '-s', '10', '-v', 'h264']
+    def manageFile (self):
+        partsDuration = self.getPartsDuration()
+        if server.splitFile(server.getPartsDuration()):
+            print("File successfully splitted")
+        else:
+            print("Error while splitting file")
+        files = self.manageSplitedFiles()
+        messages = self.getConvertMsg(files)
+        print(messages)
+        return messages
+
+    def getPartsDuration (self):
+        fileName = os.path.basename(self.mainFile.location)
+        result = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of",
+                                 "default=noprint_wrappers=1:nokey=1", fileName],
+                                stdout = subprocess.PIPE,
+                                stderr = subprocess.STDOUT)
+        filmDuration = float(result.stdout)
+        if len(self.workerList) > 0:
+            numberOfParts = 0
+            for worker in self.workerList:
+                numberOfParts += worker._free_qsize
+            if numberOfParts > 0:
+                partDuration = math.ceil(filmDuration / numberOfParts)
+                if partDuration > 10:
+                    return partDuration
+                else:
+                    return 10
+            else:
+                return 0
+        else:
+            return 0
+
+    def splitFile (self, partsDuration):
+        cmd = ['python', 'videoSplit.py', '-f', self.mainFile.location, '-s', str(partsDuration)]
         p = subprocess.Popen(cmd, stderr=subprocess.STDOUT)
         while p.poll() is None:
             continue
@@ -156,35 +190,45 @@ class Server:
         else:
             return False
 
-    def convertFile (self):
-        fileName = os.path.basename(self.mainFile.location).split('.')[0]
-        conv = Converter(ffmpeg_path="/usr/bin/ffmpeg",
-                         ffprobe_path="/usr/bin/ffprobe")
-        convert = conv.convert(self.mainFile.location, self.mainFile.saveLocation + '\\' + fileName + "_converted video." + self.mainFile.fileExtension, {
-            'format': self.mainFile.fileExtension,
-            'audio': {
-                'codec': 'aac',
-                'samplerate': 11025,
-                'channels': 2
-            },
-            'video': {
-                'codec': 'h264',
-                'width': self.mainFile.resolution[0],
-                'height': self.mainFile.resolution[1],
-                'fps': 25
-            }})
-        print("File conversion started")
-        for timecode in convert:
-            print(f'\rConverting ({timecode:.2f}) ...')
+    def manageSplitedFiles (self):
+        fileName = os.path.basename(self.mainFile.location)
+        fileNameBare = fileName.split('.')[0]
+        filesNamesList = []
+        if '\\' in self.mainFile.location or '/' in self.mainFile.location:
+            allFilesList = os.listdir(os.path.dirname(self.mainFile.location))
+        else:
+            allFilesList = os.listdir(os.getcwd())
+        for file in allFilesList:
+            if fileNameBare in file and file != fileName:
+                if '\\' in self.mainFile.location or '/' in self.mainFile.location:
+                    filesNamesList.append(os.path.dirname(self.mainFile.location + '\\\\' + file))
+                else:
+                    filesNamesList.append(os.getcwd() + '\\' + file)
+        return filesNamesList
+
+    def getConvertMsg (self, filesNamesList):
+        messages = []
+        for file in filesNamesList:
+            messages.append({'type': 'convert_file',
+                             'pid': 0,
+                             'path': file,
+                             'format': self.mainFile.fileExtension,
+                             'resolution': self.mainFile.resolution,
+                             'saveLocation': self.mainFile.saveLocation})
+        return messages
+
 
 user = UserCLI()
 user.setFileData()
 server = Server(user.fileData)
 server.checkWorkers(10)
 print("Got control")
-if server.splitFile():
-    print("File successfully splitted")
-else:
-    print("Error while splitting file")
-    sys.exit(-1)
-server.convertFile()
+server.workerList[0].set_free_qsize(3)
+for worker in server.workerList:
+    print(worker._free_qsize)
+print(server.getPartsDuration())
+msg = server.manageFile()[0]
+server.workerList[0].append_new_file(msg)
+server.workerList[0].check_for_files_to_process()
+#     sys.exit(-1)
+# server.convertFile()
