@@ -29,7 +29,7 @@ def parse_raw_output(msg):
 
 
 class Worker:
-    def __init__(self, pid=None, qsize=5, listener=None, client=None, tmp_directory='tmp'):
+    def __init__(self, pid=None, qsize=2, listener=None, client=None, tmp_directory='tmp'):
         self._conversion_files = queue.Queue(maxsize=qsize)
         self._converted_files = queue.Queue(maxsize=qsize)
         self._max_qsize = qsize
