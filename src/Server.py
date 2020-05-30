@@ -122,8 +122,7 @@ class Server:
         return 1
 
     def manageFile(self):
-        partsDuration = self.getPartsDuration()
-        if server.splitFile(server.getPartsDuration()):
+        if self.splitFile(self.getPartsDuration()):
             print("File successfully splitted")
         else:
             print("Error while splitting file")
@@ -191,18 +190,29 @@ class Server:
                              'saveLocation': self.mainFile.saveLocation})
         return messages
 
+    def convert(self):
+        msgs = self.manageFile()
+        print(f'Starting conversions of files: {msgs}')
+        while msgs:
+            for worker in self.workerList:
+                if worker.get_free_qsize() > 0:
+                    msg = msgs.pop()
+                    print(f'Msg for worker: {msg}')
+                    worker.append_new_file(msg)
+
+    def getNewWorkers(self):
+        self.listener_thread = threading.Thread(target=self.checkWorkers)
+        self.listener_thread.daemon = True
+        self.listener_thread.start()
+
+    def convertFiles(self):
+        self.convert_thread = threading.Thread(target=self.convert)
+        self.convert_thread.start()
+
 
 user = UserCLI()
 user.setFileData()
 server = Server(user.fileData)
-listener_thread = threading.Thread(target=server.checkWorkers)
-listener_thread.daemon = True
-listener_thread.start()
-print("Got control")
-for worker in server.workerList:
-    print(f'worker free size: {worker._free_qsize}')
-print(server.getPartsDuration())
-msg = server.manageFile()[0]
-print(server.workerList)
-server.workerList[0].append_new_file(msg)
-server.workerList[0].check_for_files_to_process()
+server.getNewWorkers()
+server.splitFile(partsDuration=server.getPartsDuration())
+server.convertFiles()

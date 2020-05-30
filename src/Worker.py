@@ -33,7 +33,6 @@ class Worker:
         self._conversion_files = queue.Queue(maxsize=qsize)
         self._converted_files = queue.Queue(maxsize=qsize)
         self._max_qsize = qsize
-        self._free_qsize = 0
         self.tmp_directory = tmp_directory
         if pid is None:
             self._pid = os.getpid()
@@ -120,8 +119,6 @@ class Worker:
                     msg = parse_raw_output(msg)
                     client.send(msg)
                     print("Free space free_space_request received and answer sent")
-                elif self.parse_file_data(msg):
-                    self.append_new_file(msg)
                 elif self.parse_resp_file(msg):
                     # Start a sending thread
                     thread = threading.Thread(target=self.send_file)
@@ -136,13 +133,13 @@ class Worker:
         fileData = {'path': msg.get('path'),
                     'fileExtension': msg.get('format'),
                     'resolution': msg.get('resolution')}
+        print(f'new file: {fileData}')
         try:
             lock.acquire()
             self._conversion_files.put(fileData)
             lock.release()
         except Exception as e:
             print(e)
-        return fileData
 
     def check_for_files_to_process(self):
         while True:
@@ -194,6 +191,7 @@ class Worker:
         # TODO add data from received file
 
     def send_new_file(self, sendFile):
+        # TODO add sending file
         pass
 
     def send_file(self):
@@ -219,13 +217,12 @@ class Worker:
     def start_conversion(self):
         """Start conversion thread for converting files in conversion queue"""
         self.conversion_threat = threading.Thread(target=worker.check_for_files_to_process)
-        self.conversion_threat.daemon = True
+        # self.conversion_threat.daemon = True
         self.conversion_threat.start()
 
 
 if __name__ == '__main__':
     worker = Worker()
-    time.sleep(5)
     worker.connect_to_server()
     worker.start_listening()
     worker.start_conversion()
