@@ -258,19 +258,20 @@ class Server:
         #filename = os.path.basename(location)
         allFilesList = os.listdir(os.path.dirname(location))
         for file in allFilesList:
-            if file.endswith(extension)
+            if file.endswith(extension):
                 act_parts += 1
         return act_parts < parts
     
-    def concatenateConvertedFiles(self, msg)
+    def concatenateConvertedFiles(self, msg):
         try:
             saveLocation = msg['saveLocation']
             extension = msg['fileExtension']
         except Exception as e:
+            print(e)
         allFilesList = os.listdir(os.path.dirname(saveLocation))
         inputs = ""
         for file in allFilesList:
-            if not file.endswith(extension)
+            if not file.endswith(extension):
                 pass
             else:
                 new_pipe = "|" + file
