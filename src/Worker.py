@@ -33,7 +33,7 @@ class Worker:
         self._conversion_files = queue.Queue(maxsize=qsize)
         self._converted_files = queue.Queue(maxsize=qsize)
         self._max_qsize = qsize
-        self._free_qsize = qsize
+        self._free_qsize = 0
         self.tmp_directory = tmp_directory
         if pid is None:
             self._pid = os.getpid()
@@ -134,7 +134,7 @@ class Worker:
 
     def append_new_file(self, msg):
         fileData = {'path': msg.get('path'),
-                    'fileExtension': msg.get('fileExtension'),
+                    'fileExtension': msg.get('format'),
                     'resolution': msg.get('resolution')}
         try:
             lock.acquire()

@@ -1,8 +1,5 @@
 import math
-import socket
 import subprocess
-import threading
-import time
 
 from UserCLI import *
 from Worker import *
@@ -206,5 +203,6 @@ for worker in server.workerList:
     print(f'worker free size: {worker._free_qsize}')
 print(server.getPartsDuration())
 msg = server.manageFile()[0]
+print(server.workerList)
 server.workerList[0].append_new_file(msg)
 server.workerList[0].check_for_files_to_process()
