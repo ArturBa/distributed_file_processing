@@ -40,6 +40,7 @@ class Worker:
             self._pid = pid
         if not os.path.exists(tmp_directory):
             os.makedirs(tmp_directory)
+        self._free_qsize = self._max_qsize - self._conversion_files.qsize()
 
     def __eq__(self, other):
         return self._pid == other._pid
@@ -62,7 +63,7 @@ class Worker:
     def get_join_msg(self):
         return {'type': 'join',
                 'pid': self._pid,
-                'qsize': self.get_qsize()}
+                'qsize': self._max_qsize}
 
     def parse_server_join_answer(self, msg):
         if msg['type'] == 'join' \
@@ -116,6 +117,7 @@ class Worker:
                     self._connected = True
                     print("Connection from server established")
                     msg = self.get_free_space_msg()
+                    print(msg)
                     msg = parse_raw_output(msg)
                     client.send(msg)
                     print("Free space free_space_request received and answer sent")
