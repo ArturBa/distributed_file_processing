@@ -203,10 +203,11 @@ class Worker:
                 'width': file_data.get('resolution')[0],
                 'height': file_data.get('resolution')[1],
                 'fps': 25
-            }})
+            }}, timeout=None)
         print("File conversion started")
         for timecode in convert:
-            print(f'\rConverting ({timecode:.2f}) ...')
+            pass
+        print('File converted')
         self.send_file.put(new_path)
 
     def start_listening(self):
@@ -222,7 +223,7 @@ class Worker:
 
 
 if __name__ == '__main__':
-    if os.getenv('FFMPEG_PATH') == None:
+    if os.getenv('FFMPEG_PATH') is None:
         print('Please add FFMPEG_PATH to env')
         print('For example: FFMPEG_PATH = "/usr/bin/ffmpeg;/usr/bin/ffprobe"')
         exit(1)
