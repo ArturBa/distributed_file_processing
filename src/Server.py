@@ -84,8 +84,8 @@ class Server:
                 if msg['converted']:
                     print("Got converted file from {}".format(worker.get_pid()))
                     self.addConverted(msg)
-                if self.concatenateConvertedFiles(msg):
-                    sys.exit(0)
+                    if self.concatenateConvertedFiles(msg):
+                        sys.exit(0)
             except Exception as e:
                 print(e)
 
