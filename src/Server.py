@@ -35,6 +35,8 @@ class Server:
         self.toConvertFiles = queue.Queue(maxsize=100)
         self.workerList = workerList
         self.fileData = fileData
+        self.parts = 0
+        self.completed = 0
 
     def addNewWorker(self, worker=None):
         if worker is not None:
@@ -60,12 +62,10 @@ class Server:
         while True:
             # get msg from a worker
             try:
-                # TODO remove sleeps
                 connection.send(parse_raw_output({'type': 'free_space_request',
                                                   'pid': worker.get_pid()}))
                 msg = parse_raw_input(connection.recv(1024))
                 self.parseFreeQSizeRequest(msg)
-                time.sleep(20)
                 print("got queue size answer from worker")
                 found = self.checkForFilesToSend(worker)
                 print(f'Found {found}')
@@ -76,15 +76,16 @@ class Server:
                     msg = parse_raw_output(msg)
                     connection.send(msg)
 
-                time.sleep(20)
+                time.sleep(5)
                 # Check if are converted files
                 connection.send(parse_raw_output({'type': 'send_file', 'pid': worker.get_pid()}))
                 msg = parse_raw_input(connection.recv(1024))
                 if msg['converted']:
                     print("Got converted file from {}".format(worker.get_pid()))
-                    self.addConverted(msg)
-                    if self.concatenateConvertedFiles(msg):
-                        sys.exit(0)
+                    self.addConverted()
+                    if self.allDone():
+                        if self.concatenateConvertedFiles(msg):
+                            sys.exit(0)
             except Exception as e:
                 print(e)
 
@@ -151,6 +152,7 @@ class Server:
         files = self.manageSplitedFiles()
         messages = self.getConvertMsg(files)
         print(messages)
+        self.parts = messages[0]['parts']
         for message in messages:
             self.toConvertFiles.put(message)
 
@@ -239,13 +241,17 @@ class Server:
         except Exception as e:
             print(e)
             return False
+
+        # TODO add windows support
+        tmpLocation = tmpLocation[:tmpLocation.rfind('/')]
+
         allFilesList = os.listdir(os.path.dirname(tmpLocation))
         inputs = ""
         for i in range(len(allFilesList) - 1):
             if not allFilesList[i].endswith(extension):
                 pass
             else:
-                new_pipe = allFilesList[i] + "|"
+                new_pipe = tmpLocation + allFilesList[i] + "|"
                 inputs += new_pipe
         inputs += allFilesList[-1]
         print("inputs: ", inputs)
@@ -262,8 +268,11 @@ class Server:
             print("Error while concatenating files")
             return False
 
-    def addConverted(self, msg):
-        pass
+    def addConverted(self):
+        self.completed += 1
+
+    def allDone(self):
+        return self.completed == self.parts
 
 
 if __name__ == '__main__':
