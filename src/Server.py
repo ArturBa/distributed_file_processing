@@ -95,7 +95,6 @@ def new_worker_connection(self, connection):
             _client, address = client.accept()
             print("Connected to {} on address {}".format(_client, address))
             new_thread = threading.Thread(target=self.new_worker_connection, args=(_client,))
-            #new_thread.daemon = True
             new_thread.start()
 
     def parseJoinMessage(self, msg):
@@ -214,7 +213,6 @@ def new_worker_connection(self, connection):
 
     def getNewWorkers(self):
         self.listener_thread = threading.Thread(target=self.checkWorkers)
-        self.listener_thread.daemon = True
         self.listener_thread.start()
 
     def checkForFilesToSend(self):
