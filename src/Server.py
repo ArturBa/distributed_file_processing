@@ -10,7 +10,6 @@ from Worker import *
 client = socket.socket()
 host = '127.0.0.1'
 port = 8080
-ThreadCount = 0
 try:
     client.bind((host, port))
 except socket.error as e:
@@ -18,8 +17,6 @@ except socket.error as e:
 
 print('Waiting for a Connection..')
 client.listen(5)
-read_list = [client]
-
 
 def parse_raw_input(msg):
     """De-serializing raw socket message to python object format"""
@@ -37,12 +34,6 @@ class Server:
         self.toConvertFiles = toConvertFiles
         self.workerList = workerList
         self.fileData = fileData
-
-    # def connect(self):
-    # try:
-    # client.accept()
-    # except socket.error as e:
-    # print(str(e))
 
     def addNewWorker(self, worker=None):
         if worker is not None:
@@ -65,10 +56,6 @@ class Server:
                         msg = parse_raw_output(msg)
                         print("sending join accept message")
                         connection.send(msg)
-                        # msg = self.getWorkerQSizeRequest(worker)
-                        # msg = parse_raw_output(msg)
-                        # connection.send(msg)
-                        # print("sending worker queue size message")
                 elif self.parseFreeQSizeRequest(msg):
                     print("got queue size answer from worker")
                 elif found[0]:
@@ -98,7 +85,7 @@ class Server:
             _client, address = client.accept()
             print("Connected to {} on address {}".format(_client, address))
             new_thread = threading.Thread(target=self.new_worker_connection, args=(_client,))
-            new_thread.daemon = True
+            #new_thread.daemon = True
             new_thread.start()
 
     def parseJoinMessage(self, msg):
@@ -128,17 +115,7 @@ class Server:
             return False
         
     def parseConvFileMsg(self, msg):
-        return msg[''] == 'convert_file'
-
-    def getFreeSize(self, timeout=0):
-        start_time = time.time()
-        workers_served = 0
-        while time.time() < start_time + timeout or workers_served > len(self.workerList):
-            msg = client.recv(1024)
-            if self.parseFreeQsizeRequest:
-                workers_served += 1
-        # return len(any[(worker._free_qsize > 0) for worker in self.workerList])
-        return 1
+        return msg['type'] == 'convert_file'
 
     def manageFile(self):
         dirName = '{}_conversion_{}'.format(os.path.basename(self.mainFile.location).split('.')[0], datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
@@ -246,7 +223,7 @@ class Server:
         
     def checkForFilesToSend(self):
         for worker in self.workerList:
-            if len(worker._conversion_files) > 0:
+            if worker._conversion_files.qsize() > 0:
                 return (True, worker)
             else:
                 pass
@@ -254,7 +231,7 @@ class Server:
     
     def getConvFileToSend(self, worker):
         msg = dict()
-        if len(worker._conversion_files) > 0:
+        if worker._conversion_files.qsize() > 0:
                 try:
                     msg = worker._conversion_files.pop(0)
                     return msg
@@ -272,7 +249,6 @@ class Server:
         except Exception as e:
             print(e)
             return False
-        #filename = os.path.basename(location)
         allFilesList = os.listdir(os.path.dirname(location))
         for file in allFilesList:
             if file.endswith(extension):
