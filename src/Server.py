@@ -184,16 +184,10 @@ class Server:
         fileName = os.path.basename(self.mainFile.location)
         fileNameBare = fileName.split('.')[0]
         filesNamesList = []
-        if '\\' in self.mainFile.location or '/' in self.mainFile.location:
-            allFilesList = os.listdir(os.path.dirname(self.mainFile.location))
-        else:
-            allFilesList = os.listdir(os.getcwd())
+        allFilesList = os.listdir(os.path.dirname(self.mainFile.location))
         for file in allFilesList:
             if fileNameBare in file and file != fileName:
-                if '\\' in self.mainFile.location or '/' in self.mainFile.location:
-                    filesNamesList.append(os.path.dirname(self.mainFile.location) + '\\' + file)
-                else:
-                    filesNamesList.append(os.getcwd() + '\\' + file)
+                filesNamesList.append(os.path.dirname(self.mainFile.location) + '\\' + file)
         return filesNamesList
 
     def getConvertMsg(self, filesNamesList):
