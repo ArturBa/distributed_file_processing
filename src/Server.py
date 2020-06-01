@@ -77,7 +77,11 @@ def new_worker_connection(self, connection):
         msg = connection.receive(1025)
         if msg['converted']
             self.addConverted(msg)
-            self.concatenateConvertedFiles(msg)
+            if self.concatenateConvertedFiles(msg):
+                os.exit(0)
+            else:
+                pass
+            
 
     def checkIfWorkerAlreadyAdded(self, worker):
         for i in self.workerList:
@@ -91,7 +95,6 @@ def new_worker_connection(self, connection):
             _client, address = client.accept()
             print("Connected to {} on address {}".format(_client, address))
             new_thread = threading.Thread(target=self.new_worker_connection, args=(_client,))
-            #new_thread.daemon = True
             new_thread.start()
 
     def parseJoinMessage(self, msg):
@@ -210,7 +213,6 @@ def new_worker_connection(self, connection):
 
     def getNewWorkers(self):
         self.listener_thread = threading.Thread(target=self.checkWorkers)
-        self.listener_thread.daemon = True
         self.listener_thread.start()
 
     def checkForFilesToSend(self):
@@ -221,24 +223,33 @@ def new_worker_connection(self, connection):
     
     def concatenateConvertedFiles(self, msg):
         try:
+            tmpLocation = self.mainFile.location
             saveLocation = msg['saveLocation']
             extension = msg['fileExtension']
         except Exception as e:
             print(e)
-        allFilesList = os.listdir(os.path.dirname(saveLocation))
+        allFilesList = os.listdir(os.path.dirname(tmpLocation))
         inputs = ""
-        for file in allFilesList:
-            if not file.endswith(extension):
+        for i in range(len(allFilesList) - 1):
+            if not allFilesList[i].endswith(extension):
                 pass
             else:
-                new_pipe = "|" + file
-                inputs += new_pipe  
-        cmd = "ffmpeg -i \"concat:"  + inputs + "\" -c copy output.mp4"
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        if result:
+                new_pipe = allFilesList[i] + "|"
+                inputs += new_pipe
+        inputs += allFilesList[-1]
+        print("inputs: ", inputs)
+        saveLocation += '/output.mp4'
+        print("save location: ", saveLocation)
+        cmd = "ffmpeg -i   \"concat:" +  inputs + "\" -c copy " + saveLocation
+        result = subprocess.Popen(cmd, shell=True)
+        while result.poll() is None:
+            continue
+        if result.poll() == 0:
             print("Files succesfully concatenated")
+            return True
         else:
             print("Error while concatenating files")
+            return False
 
 user = UserCLI()
 user.setFileData()
