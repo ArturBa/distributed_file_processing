@@ -41,7 +41,6 @@ class Server:
                 self.workerList.append(worker)
 
     def new_worker_connection(self, connection):
-        #TODO: add breaks and exceptions
         # receive new connection
         while True:
             msg = connection.recv(1024)
@@ -55,11 +54,14 @@ class Server:
                     msg = parse_raw_output(msg)
                     print("sending join accept message")
                     connection.send(msg)
+                break
         # request update from workers
         while True:
             # get msg from a worker
-            msg = connection.recv(1024)
-            msg = parse_row_input(msg)
+            connection.send(parse_raw_input({'type': 'free_space_request',
+                                             'pid': worker.get_pid()}))
+            msg = parse_raw_output(connection.recv(1024))
+            print(f'received response {msg}')
             self.parseFreeQSizeRequest(msg)
             worker.set_free_qsize(msg['free_space'])
             print("got queue size answer from worker")
@@ -115,7 +117,7 @@ class Server:
         if msg['type'] == 'free_space_answer':
             for worker in self.workerList:
                 if msg['pid'] == worker.get_pid():
-                    worker.set_free_qsize(msg['free_space'])
+                    worker._max_qsize = msg['free_space']
                     return True
         else:
             return False
@@ -250,9 +252,10 @@ class Server:
             print("Error while concatenating files")
             return False
 
-user = UserCLI()
-user.setFileData()
-server = Server(user.fileData)
-server.getNewWorkers()
-#server.splitFile(partsDuration=server.manageFile())
-server.convertFiles()
+
+if __name__ == '__main__':
+    user = UserCLI()
+    user.setFileData()
+    server = Server(user.fileData)
+    server.getNewWorkers()
+    server.manageFile()
