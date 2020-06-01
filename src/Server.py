@@ -247,7 +247,7 @@ class Server:
         
     def checkForFilesToSend(self):
         for worker in self.workerList:
-            if len(worker.conversion_files) > 0:
+            if len(worker._conversion_files) > 0:
                 return (True, worker)
             else:
                 pass
