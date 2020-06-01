@@ -219,6 +219,10 @@ class Worker:
 
 
 if __name__ == '__main__':
+    if os.getenv('FFMPEG_PATH') == None:
+        print('Please add FFMPEG_PATH to env')
+        print('For example: FFMPEG_PATH = "/usr/bin/ffmpeg;/usr/bin/ffprobe"')
+        exit(1)
     worker = Worker()
     worker.connect_to_server()
     worker.start_listening()
