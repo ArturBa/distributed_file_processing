@@ -19,28 +19,26 @@ except socket.error as e:
 
 
 def parse_raw_input(msg):
-    '''De-serializing raw socket message to python object format'''
+    """De-serializing raw socket message to python object format"""
     return pickle.loads(msg)
 
 
 def parse_raw_output(msg):
-    '''Serializing python object to raw socket message'''
+    """Serializing python object to raw socket message"""
     return pickle.dumps(msg)
 
 
 class Worker:
-    def __init__(self, pid=None, qsize=2, listener=None, client=None, tmp_directory='tmp'):
+    def __init__(self, pid=None, qsize=5, tmp_directory='tmp'):
         self._conversion_files = queue.Queue(maxsize=qsize)
-        self._converted_files = queue.Queue(maxsize=qsize)
+        self.send_file = queue.Queue(maxsize=qsize)
         self._max_qsize = qsize
         self.tmp_directory = tmp_directory
+        self._connected = False
         if pid is None:
             self._pid = os.getpid()
         else:
             self._pid = pid
-        if not os.path.exists(tmp_directory):
-            os.makedirs(tmp_directory)
-        self._free_qsize = self._max_qsize - self._conversion_files.qsize()
 
     def __eq__(self, other):
         return self._pid == other._pid
@@ -55,10 +53,19 @@ class Worker:
         return self._conversion_files.qsize()
 
     def get_free_qsize(self):
-        return self._max_qsize - self._conversion_files.qsize()
+        return self._max_qsize - self.get_qsize()
 
-    def set_free_qsize(self, free):
-        self._free_qsize = free
+    def connect_to_server(self):
+        while not self._connected:
+            try:
+                msg = self.get_join_msg()
+                msg = parse_raw_output(msg)
+                client.send(msg)
+                self._connected = True
+            except Exception as e:
+                print('Unable to connect to server. Trying again in 5s')
+                print(e)
+                time.sleep(5)
 
     def get_join_msg(self):
         return {'type': 'join',
@@ -66,113 +73,124 @@ class Worker:
                 'qsize': self._max_qsize}
 
     def parse_server_join_answer(self, msg):
-        if msg['type'] == 'join' \
-                and msg['pid'] == self.get_pid() \
-                and msg['result'] == 'accepted':
-            return True
-        else:
-            return False
+        return msg['type'] == 'join' \
+               and msg['pid'] == self.get_pid() \
+               and msg['result'] == 'accepted'
+
+    def parse_server_free_space_request(self, msg):
+        return msg['type'] == 'free_space_request' \
+               and msg['pid'] == self.get_pid()
+
+    def parse_convert_file(self, msg):
+        return msg['type'] == 'covert_file' and msg['pid'] == self.get_pid()
+
+    def parse_resp_file(self, msg):
+        return msg['type'] == 'send_file' and msg['pid'] == self.get_pid()
 
     def get_free_space_msg(self):
         return {'type': 'free_space_answer',
                 'pid': self.get_pid(),
                 'free_space': self.get_free_qsize()}
 
-    def parse_server_free_space_request(self, msg):
-        if msg['type'] == 'free_space_request' \
-                and msg['pid'] == self.get_pid():
-            return True
-        else:
-            return False
-
-    def parse_resp_file(self, msg):
-        # TODO add filter
-        return False
-
-    def send_free_space_answer(self, timeout):
-        start_time = time.time()
-        while time.time() < start_time + timeout:
-            msg = self._listener.recv()
-            if self.parse_server_free_space_request(msg):
-                self._client.send(self.get_free_space_msg())
-                break
-
-    def parse_convert_file(self, msg):
-        if msg['type'] == 'covert_file' and msg['pid'] == self.get_pid():
-            return True
-        else:
-            return False
-
-    def connect_to_server(self):
-        msg = self.get_join_msg()
-        msg = parse_raw_output(msg)
-        client.send(msg)
+    def get_converted_file_msg(self):
+        # TODO add arguments
+        return {'type': 'converted_file',
+                'pid': self.get_pid()}
 
     def listen(self):
+        """
+        Listen to a server connection
+        Returns:
+
+        """
         while True:
             try:
                 msg = client.recv(1024)
                 msg = parse_raw_input(msg)
                 if self.parse_server_join_answer(msg):
-                    self._connected = True
+                    # Get join message from server
+                    client.send(parse_raw_output(self.get_free_space_msg()))
                     print("Connection from server established")
-                    msg = self.get_free_space_msg()
-                    print(msg)
-                    msg = parse_raw_output(msg)
-                    client.send(msg)
-                    print("Free space free_space_request received and answer sent")
+                elif self.parse_convert_file(msg):
+                    # Add new file to convertion queue
+                    self.append_new_file(msg)
+                    print('Received a new file')
+                    # TODO does server require a response
+                elif self.parse_server_free_space_request(msg):
+                    # Send free queue response
+                    client.send(parse_raw_output(self.get_free_space_msg()))
+                    print('Responded with free queue size')
                 elif self.parse_resp_file(msg):
                     # Start a sending thread
-                    thread = threading.Thread(target=self.send_file)
-                    thread.daemon = True
-                    thread.start()
+                    if self.send_file.qsize() > 0:
+                        client.send(parse_raw_output(self.get_converted_file_msg()))
                 else:
                     print("No response from server")
             except EOFError as e:
                 continue
 
     def append_new_file(self, msg):
-        fileData = {'path': msg.get('path'),
-                    'fileExtension': msg.get('format'),
-                    'resolution': msg.get('resolution')}
-        print(f'new file: {fileData}')
-        try:
-            lock.acquire()
-            self._conversion_files.put(fileData)
-            lock.release()
-        except Exception as e:
-            print(e)
+        """
+        Append a new file to a convertion queue
+        Args:
+            msg: msg with data about a new file
+
+        Returns: none
+        """
+        file_data = {'path': msg.get('path'),
+                     'fileExtension': msg.get('format'),
+                     'resolution': msg.get('resolution')}
+        print(f'new file: {file_data}')
+        self._conversion_files.put(file_data)
 
     def check_for_files_to_process(self):
+        """
+        Check for files ready to be converted
+        Returns:
+
+        """
         while True:
             try:
                 if not self._conversion_files.empty():
-                    # Lock threads for taking filedata from queue
-                    lock.acquire()
-                    fileData = self._conversion_files.get()
-                    lock.release()
+                    # Take a filedata from a conversion queue
+                    file_data = self._conversion_files.get()
 
                     # pack data to send to a thread
-                    filedata_packed = pickle.dumps(fileData, -1)
+                    filedata_packed = pickle.dumps(file_data, -1)
 
+                    # Start a new thread with processing this data
                     thread = threading.Thread(target=self.convertFile, args={filedata_packed})
                     thread.daemon = True
                     thread.start()
             except Exception as e:
+                # In case of no files await 2 sec
+                time.sleep(2)
                 print(e)
 
     def convertFile(self, filedata_packed):
-        # Unpack filedata
-        fileData = pickle.loads(filedata_packed)
+        """
+        Convert a file
+        Args:
+            filedata_packed: file data packed in pickle.dumps(file_data, -1)
 
-        print(f'filedata: {fileData}')
-        fileName = os.path.basename(fileData.get('path')).split('.')[0]
-        ffmpegPath = os.getenv('FFMPEG_PATH').split(';')
-        newPath = self.tmp_directory + '\\' + fileName + "_converted video." + fileData.get('fileExtension')
-        conv = Converter(ffmpeg_path=ffmpegPath[0],
-                         ffprobe_path=ffmpegPath[1])
-        convert = conv.convert(fileData.get('path'), newPath, {
-            'format': fileData.get('fileExtension'),
+        Returns:
+
+        """
+        # Unpack filedata
+        file_data = pickle.loads(filedata_packed)
+
+        file_name = os.path.basename(file_data.get('path')).split('.')[0]
+        dir_name = os.path.dirname(file_data.get('path'))
+        ffmpeg_path = os.getenv('FFMPEG_PATH').split(';')
+        if os.name == 'nt':
+            new_path = dir_name + '\\' + file_name + "_converted video." + file_data.get('fileExtension')
+        else:
+            new_path = dir_name + '/' + file_name + "_converted video." + file_data.get(
+                'fileExtension')
+        conv = Converter(ffmpeg_path=ffmpeg_path[0],
+                         ffprobe_path=ffmpeg_path[1])
+        convert = conv.convert(file_data.get('path'), new_path, {
+            'format': file_data.get('fileExtension'),
             'audio': {
                 'codec': 'aac',
                 'samplerate': 11025,
@@ -180,35 +198,14 @@ class Worker:
             },
             'video': {
                 'codec': 'h264',
-                'width': fileData.get('resolution')[0],
-                'height': fileData.get('resolution')[1],
+                'width': file_data.get('resolution')[0],
+                'height': file_data.get('resolution')[1],
                 'fps': 25
             }})
         print("File conversion started")
         for timecode in convert:
             print(f'\rConverting ({timecode:.2f}) ...')
-        lock.acquire()
-        self._converted_files.put(newPath)
-        lock.release()
-        # TODO add data from received file
-
-    def send_new_file(self, sendFile):
-        # TODO add sending file
-        pass
-
-    def send_file(self):
-        try:
-            if not self._conversion_files.empty():
-                lock.acquire()
-                sendFile = self._converted_files.get()
-                lock.release()
-                thread = threading.Thread(target=self.send_new_file, args=sendFile)
-                thread.daemon = True
-                thread.start()
-        except Exception as e:
-            print(e)
-        finally:
-            lock.release()
+        self.send_file.put(new_path)
 
     def start_listening(self):
         """Start listening thread for receiving new request from server"""
@@ -219,7 +216,6 @@ class Worker:
     def start_conversion(self):
         """Start conversion thread for converting files in conversion queue"""
         self.conversion_threat = threading.Thread(target=worker.check_for_files_to_process)
-        # self.conversion_threat.daemon = True
         self.conversion_threat.start()
 
 

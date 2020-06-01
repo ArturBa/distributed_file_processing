@@ -74,10 +74,11 @@ class Server:
             self.parseConvFileMsg(msg)
             print("Got converted file from {}", msg['pid'])
             connection.send(msg)
-            msg = connection.receive(1025)
+            msg = connection.receive(1024)
             if msg['converted']
                 self.addConverted(msg)
-                self.concatenateConvertedFiles(msg)
+                if self.concatenateConvertedFiles(msg):
+                    os.exit(0)
 
     def checkIfWorkerAlreadyAdded(self, worker):
         for i in self.workerList:
@@ -91,7 +92,6 @@ class Server:
             _client, address = client.accept()
             print("Connected to {} on address {}".format(_client, address))
             new_thread = threading.Thread(target=self.new_worker_connection, args=(_client,))
-            #new_thread.daemon = True
             new_thread.start()
 
     def parseJoinMessage(self, msg):
@@ -127,11 +127,12 @@ class Server:
         dirName = '{}_conversion_{}'.format(os.path.basename(self.mainFile.location).split('.')[0], datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
         dirName = dirName.replace(':', '_')
         dirName = dirName.replace('/', '_')
-        os.mkdir('.\\' + dirName)
         if os.name == 'nt':
+            os.mkdir('.\\' + dirName)
             shutil.copy(self.mainFile.location, "{}\\{}".format(dirName, os.path.basename(self.mainFile.location)))
             self.mainFile.location = os.getcwd() + '\\' + dirName + '\\' + os.path.basename(self.mainFile.location)
         else:
+            os.mkdir('./' + dirName)
             shutil.copy(self.mainFile.location, "{}/{}".format(dirName, os.path.basename(self.mainFile.location)))
             self.mainFile.location = os.getcwd() + '/' + dirName + '/' + os.path.basename(self.mainFile.location)
         if self.splitFile(self.getPartsDuration()):
@@ -204,7 +205,6 @@ class Server:
 
     def getNewWorkers(self):
         self.listener_thread = threading.Thread(target=self.checkWorkers)
-        self.listener_thread.daemon = True
         self.listener_thread.start()
 
     def checkForFilesToSend(self, worker):
@@ -222,24 +222,33 @@ class Server:
     
     def concatenateConvertedFiles(self, msg):
         try:
+            tmpLocation = self.mainFile.location
             saveLocation = msg['saveLocation']
             extension = msg['fileExtension']
         except Exception as e:
             print(e)
-        allFilesList = os.listdir(os.path.dirname(saveLocation))
+        allFilesList = os.listdir(os.path.dirname(tmpLocation))
         inputs = ""
-        for file in allFilesList:
-            if not file.endswith(extension):
+        for i in range(len(allFilesList) - 1):
+            if not allFilesList[i].endswith(extension):
                 pass
             else:
-                new_pipe = "|" + file
-                inputs += new_pipe  
-        cmd = "ffmpeg -i \"concat:"  + inputs + "\" -c copy output.mp4"
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        if result:
+                new_pipe = allFilesList[i] + "|"
+                inputs += new_pipe
+        inputs += allFilesList[-1]
+        print("inputs: ", inputs)
+        saveLocation += '/output.mp4'
+        print("save location: ", saveLocation)
+        cmd = "ffmpeg -i   \"concat:" +  inputs + "\" -c copy " + saveLocation
+        result = subprocess.Popen(cmd, shell=True)
+        while result.poll() is None:
+            continue
+        if result.poll() == 0:
             print("Files succesfully concatenated")
+            return True
         else:
             print("Error while concatenating files")
+            return False
 
 user = UserCLI()
 user.setFileData()
