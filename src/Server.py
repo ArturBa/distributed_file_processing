@@ -57,12 +57,12 @@ class Server:
                     connection.send(msg)
         # request update from workers
         while True:
-            self.parseFreeQSizeRequest(msg)
             # get msg from a worker
             msg = connection.recv(1024)
+            msg = parse_row_input(msg)
+            self.parseFreeQSizeRequest(msg)
             worker.set_free_qsize(msg['free_space'])
             print("got queue size answer from worker")
-
             found = self.checkForFilesToSend(worker)
             if found:
                 print("Found splitted file to send")
@@ -75,10 +75,10 @@ class Server:
             print("Got converted file from {}", msg['pid'])
             connection.send(msg)
             msg = connection.receive(1024)
-            if msg['converted']
+            if msg['converted']:
                 self.addConverted(msg)
                 if self.concatenateConvertedFiles(msg):
-                    os.exit(0)
+                    sys.exit(0)
 
     def checkIfWorkerAlreadyAdded(self, worker):
         for i in self.workerList:
