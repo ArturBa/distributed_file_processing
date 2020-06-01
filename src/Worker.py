@@ -30,7 +30,7 @@ def parse_raw_output(msg):
 
 class Worker:
     def __init__(self, pid=None, qsize=5, tmp_directory='tmp'):
-        self._conversion_files = queue.Queue(maxsize=qsize)
+        self.conversion_files = queue.Queue(maxsize=qsize)
         self.send_file = queue.Queue(maxsize=qsize)
         self._max_qsize = qsize
         self.tmp_directory = tmp_directory
@@ -52,7 +52,7 @@ class Worker:
         return self._pid
 
     def get_qsize(self):
-        return self._conversion_files.qsize()
+        return self.conversion_files.qsize()
 
     def get_free_qsize(self):
         return self._max_qsize - self.get_qsize()
@@ -95,8 +95,9 @@ class Worker:
                 'free_space': self.get_free_qsize()}
 
     def get_converted_file_msg(self):
-        # TODO add arguments
-        return {'type': 'converted_file',
+        file_path = self.send_file.get()
+        return {'converted': True,
+                'file_path': file_path,
                 'pid': self.get_pid()}
 
     def listen(self):
@@ -114,26 +115,27 @@ class Worker:
                     client.send(parse_raw_output(self.get_free_space_msg()))
                     print("Connection from server established")
                 elif self.parse_convert_file(msg):
-                    # Add new file to convertion queue
+                    # Add new file to conversion queue
                     self.append_new_file(msg)
                     print('Received a new file')
-                    # TODO does server require a response
                 elif self.parse_server_free_space_request(msg):
                     # Send free queue response
                     client.send(parse_raw_output(self.get_free_space_msg()))
                     print('Responded with free queue size')
                 elif self.parse_resp_file(msg):
-                    # Start a sending thread
+                    # Start a sending a file
                     if self.send_file.qsize() > 0:
                         client.send(parse_raw_output(self.get_converted_file_msg()))
+                    else:
+                        client.send(parse_raw_output({'converted': False}))
                 else:
-                    print("No response from server")
+                    print("Message not supported")
             except EOFError as e:
                 continue
 
     def append_new_file(self, msg):
         """
-        Append a new file to a convertion queue
+        Append a new file to a conversion queue
         Args:
             msg: msg with data about a new file
 
@@ -143,7 +145,7 @@ class Worker:
                      'fileExtension': msg.get('format'),
                      'resolution': msg.get('resolution')}
         print(f'new file: {file_data}')
-        self._conversion_files.put(file_data)
+        self.conversion_files.put(file_data)
 
     def check_for_files_to_process(self):
         """
@@ -153,9 +155,9 @@ class Worker:
         """
         while True:
             try:
-                if not self._conversion_files.empty():
+                if not self.conversion_files.empty():
                     # Take a filedata from a conversion queue
-                    file_data = self._conversion_files.get()
+                    file_data = self.conversion_files.get()
 
                     # pack data to send to a thread
                     filedata_packed = pickle.dumps(file_data, -1)
@@ -183,7 +185,7 @@ class Worker:
 
         file_name = os.path.basename(file_data.get('path')).split('.')[0]
         ffmpeg_path = os.getenv('FFMPEG_PATH').split(';')
-        new_path = self.tmp_directory + '\\' + file_name + "_converted video." + file_data.get('fileExtension')
+        new_path = self.tmp_directory + '\\' + file_name + "_converted." + file_data.get('fileExtension')
         conv = Converter(ffmpeg_path=ffmpeg_path[0],
                          ffprobe_path=ffmpeg_path[1])
         convert = conv.convert(file_data.get('path'), new_path, {
