@@ -201,64 +201,16 @@ class Server:
                              'parts': len(filesNamesList)})
         return messages
 
-    def convert(self):
-        #use 'pid' value
-        msgs = self.manageFile()
-        print(f'Starting conversions of files: {msgs}')
-        while msgs:
-            for worker in self.workerList:
-                if worker.get_free_qsize() > 0:
-                    msg = msgs.pop()
-                    msg.update({'pid': worker.get_pid()})
-                    print(f'Msg for worker: {msg}')
-                    worker.append_new_file(msg)
-
     def getNewWorkers(self):
         self.listener_thread = threading.Thread(target=self.checkWorkers)
         self.listener_thread.daemon = True
         self.listener_thread.start()
 
-    def convertFiles(self):
-        #TODO: remove
-        self.convert_thread = threading.Thread(target=self.convert)
-        self.convert_thread.start()
-        
     def checkForFilesToSend(self):
-        #TODO: use toConvertFiles
-        for worker in self.workerList:
-            if worker._conversion_files.qsize() > 0:
-                return (True, worker)
-            else:
-                pass
-        return (False, None)
+        #TODO: use toConvertFiles, use 'pid' value
     
     def getConvFileToSend(self, worker):
-        
-        msg = dict()
-        if worker._conversion_files.qsize() > 0:
-                try:
-                    msg = worker._conversion_files.pop(0)
-                    return msg
-                except Exception as e:
-                    print(e)
-                    pass
-        return msg
-    
-    def checkIfMoreFiles(self, msg):
-        #TODO to be removed
-        act_parts = 0
-        try:
-            location = msg['saveLocation']
-            parts = msg['parts']
-            extension = msg['fileExtension']
-        except Exception as e:
-            print(e)
-            return False
-        allFilesList = os.listdir(os.path.dirname(location))
-        for file in allFilesList:
-            if file.endswith(extension):
-                act_parts += 1
-        return act_parts < parts
+        #TODO use toConvertFiles field
     
     def concatenateConvertedFiles(self, msg):
         try:
