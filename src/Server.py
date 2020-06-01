@@ -60,6 +60,7 @@ class Server:
         while True:
             # get msg from a worker
             try:
+                # TODO remove sleeps
                 connection.send(parse_raw_output({'type': 'free_space_request',
                                                   'pid': worker.get_pid()}))
                 msg = parse_raw_input(connection.recv(1024))
@@ -134,8 +135,8 @@ class Server:
     def manageFile(self):
         dirName = '{}_conversion_{}'.format(os.path.basename(self.mainFile.location).split('.')[0],
                                             datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
-        dirName = dirName.replace(':', '_')
-        dirName = dirName.replace('/', '_')
+        for char in [':', ' ', '/']:
+            dirName = dirName.replace(char, '_')
         if os.name == 'nt':
             os.mkdir('.\\' + dirName)
             shutil.copy(self.mainFile.location, "{}\\{}".format(dirName, os.path.basename(self.mainFile.location)))
@@ -165,6 +166,7 @@ class Server:
         except Exception:
             print("Error while obtaining the duration of your file.")
             sys.exit(-1)
+
         if len(self.workerList) > 0:
             numberOfParts = 0
             for worker in self.workerList:
@@ -197,7 +199,10 @@ class Server:
         allFilesList = os.listdir(os.path.dirname(self.mainFile.location))
         for file in allFilesList:
             if fileNameBare in file and file != fileName:
-                filesNamesList.append(os.path.dirname(self.mainFile.location) + '\\' + file)
+                if os.name == 'nt':
+                    filesNamesList.append(os.path.dirname(self.mainFile.location) + '\\' + file)
+                else:
+                    filesNamesList.append(os.path.dirname(self.mainFile.location) + '/' + file)
         return filesNamesList
 
     def getConvertMsg(self, filesNamesList):
