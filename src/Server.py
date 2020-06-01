@@ -60,7 +60,7 @@ class Server:
             self.parseFreeQSizeRequest(msg)
             # get msg from a worker
             msg = connection.recv(1024)
-            # TODO update worker qsize
+            worker.set_free_qsize(msg['free_space'])
             print("got queue size answer from worker")
 
             found = self.checkForFilesToSend(worker)
