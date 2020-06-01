@@ -221,21 +221,26 @@ def new_worker_connection(self, connection):
     
     def concatenateConvertedFiles(self, msg):
         try:
+            tmpLocation = self.mainFile.location
             saveLocation = msg['saveLocation']
             extension = msg['fileExtension']
         except Exception as e:
             print(e)
-        allFilesList = os.listdir(os.path.dirname(saveLocation))
+        allFilesList = os.listdir(os.path.dirname(tmpLocation))
         inputs = ""
-        for file in allFilesList:
-            if not file.endswith(extension):
+        for i in range(len(allFilesList) - 1):
+            if not allFilesList[i].endswith(extension):
                 pass
             else:
-                new_pipe = "|" + file
-                inputs += new_pipe  
-        cmd = "ffmpeg -i \"concat:"  + inputs + "\" -c copy output.mp4"
+                new_pipe = allFilesList[i] + "|"
+                inputs += new_pipe
+        inputs += allFilesList[:]
+        saveLocation += 'output.mp4'
+        cmd = ["ffmpeg", "-i",  "\"concat:", inputs, "\" -c", "copy",  saveLocation]
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        if result:
+        while result.poll() is None:
+            pass
+        if p.poll() == 0:
             print("Files succesfully concatenated")
         else:
             print("Error while concatenating files")
