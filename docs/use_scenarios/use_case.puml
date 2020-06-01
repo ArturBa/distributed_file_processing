@@ -1,0 +1,20 @@
+@startuml
+(Select File Name) as (Name)
+(Save File) as (Save)
+(Convert a movie) as (Convert)
+(Select Codec) as (Codec)
+(Select Resolution) as (Resolution)
+left to right direction
+
+User --> (Name)
+User --> (Save)
+User --> (Convert)
+User --> (Codec)
+User --> (Resolution)
+
+(Name) <. (Save) : include
+(Convert) .> (Codec) : include
+(Convert) .> (Resolution) : include
+(Save) .> (Convert) : extend
+
+@enduml
