@@ -70,7 +70,6 @@ class Server:
                 found = self.checkForFilesToSend(worker)
                 print(f'Found {found}')
                 print(f'Conv queue: {self.toConvertFiles.qsize()}')
-                time.sleep(20)
                 if found:
                     print("Found splitted file to send")
                     msg = self.getConvFileToSend(found, worker)
@@ -224,8 +223,6 @@ class Server:
     def checkForFilesToSend(self, worker):
         if worker.get_free_qsize() > 0 and not self.toConvertFiles.empty():
             toConv = self.toConvertFiles.get()
-            # TODO remove in final
-            print(f'File to convert: {toConv}')
             return toConv
         return False
 
@@ -237,10 +234,11 @@ class Server:
     def concatenateConvertedFiles(self, msg):
         try:
             tmpLocation = self.mainFile.location
-            saveLocation = msg['saveLocation']
-            extension = msg['fileExtension']
+            saveLocation = self.mainFile.saveLocation
+            extension = self.mainFile.fileExtension
         except Exception as e:
             print(e)
+            return False
         allFilesList = os.listdir(os.path.dirname(tmpLocation))
         inputs = ""
         for i in range(len(allFilesList) - 1):
