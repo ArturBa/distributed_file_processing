@@ -238,6 +238,7 @@ class Server:
             extension = self.mainFile.fileExtension
         except Exception as e:
             print(e)
+            return False
         allFilesList = os.listdir(os.path.dirname(tmpLocation))
         inputs = ""
         for i in range(len(allFilesList) - 1):
