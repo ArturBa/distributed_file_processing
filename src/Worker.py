@@ -82,7 +82,7 @@ class Worker:
                and msg['pid'] == self.get_pid()
 
     def parse_convert_file(self, msg):
-        return msg['type'] == 'covert_file' and msg['pid'] == self.get_pid()
+        return msg['type'] == 'convert_file' and msg['pid'] == self.get_pid()
 
     def parse_resp_file(self, msg):
         return msg['type'] == 'send_file' and msg['pid'] == self.get_pid()

@@ -1,8 +1,8 @@
+import datetime
 import math
+import shutil
 import subprocess
 import sys
-import datetime
-import shutil
 
 from UserCLI import *
 from Worker import *
@@ -18,6 +18,7 @@ except socket.error as e:
 print('Waiting for a Connection..')
 client.listen(5)
 
+
 def parse_raw_input(msg):
     """De-serializing raw socket message to python object format"""
     return pickle.loads(msg)
@@ -29,9 +30,9 @@ def parse_raw_output(msg):
 
 
 class Server:
-    def __init__(self, mainFile, toConvertFiles=None, workerList=[], fileData=None):
+    def __init__(self, mainFile, workerList=[], fileData=None):
         self.mainFile = mainFile
-        self.toConvertFiles = queue.Queue(maxsize = 100)
+        self.toConvertFiles = queue.Queue(maxsize=100)
         self.workerList = workerList
         self.fileData = fileData
 
@@ -41,7 +42,6 @@ class Server:
                 self.workerList.append(worker)
 
     def new_worker_connection(self, connection):
-        #TODO: add breaks and exceptions
         # receive new connection
         while True:
             msg = connection.recv(1024)
@@ -55,30 +55,39 @@ class Server:
                     msg = parse_raw_output(msg)
                     print("sending join accept message")
                     connection.send(msg)
+                break
         # request update from workers
         while True:
             # get msg from a worker
-            msg = connection.recv(1024)
-            msg = parse_row_input(msg)
-            self.parseFreeQSizeRequest(msg)
-            worker.set_free_qsize(msg['free_space'])
-            print("got queue size answer from worker")
-            found = self.checkForFilesToSend(worker)
-            if found:
-                print("Found splitted file to send")
-                msg = self.getConvFileToSend(found, worker)
-                msg = parse_raw_output(msg)
-                connection.send(msg)
+            try:
+                # TODO remove sleeps
+                connection.send(parse_raw_output({'type': 'free_space_request',
+                                                  'pid': worker.get_pid()}))
+                msg = parse_raw_input(connection.recv(1024))
+                self.parseFreeQSizeRequest(msg)
+                time.sleep(20)
+                print("got queue size answer from worker")
+                found = self.checkForFilesToSend(worker)
+                print(f'Found {found}')
+                print(f'Conv queue: {self.toConvertFiles.qsize()}')
+                time.sleep(20)
+                if found:
+                    print("Found splitted file to send")
+                    msg = self.getConvFileToSend(found, worker)
+                    msg = parse_raw_output(msg)
+                    connection.send(msg)
 
-            # Check if are converted files
-            self.parseConvFileMsg(msg)
-            print("Got converted file from {}", msg['pid'])
-            connection.send(msg)
-            msg = connection.receive(1024)
-            if msg['converted']:
-                self.addConverted(msg)
-                if self.concatenateConvertedFiles(msg):
-                    sys.exit(0)
+                time.sleep(20)
+                # Check if are converted files
+                connection.send(parse_raw_output({'type': 'send_file', 'pid': worker.get_pid()}))
+                msg = parse_raw_input(connection.recv(1024))
+                if msg['converted']:
+                    print("Got converted file from {}".format(worker.get_pid()))
+                    self.addConverted(msg)
+                    if self.concatenateConvertedFiles(msg):
+                        sys.exit(0)
+            except Exception as e:
+                print(e)
 
     def checkIfWorkerAlreadyAdded(self, worker):
         for i in self.workerList:
@@ -115,18 +124,19 @@ class Server:
         if msg['type'] == 'free_space_answer':
             for worker in self.workerList:
                 if msg['pid'] == worker.get_pid():
-                    worker.set_free_qsize(msg['free_space'])
+                    worker._max_qsize = msg['free_space']
                     return True
         else:
             return False
-        
+
     def parseConvFileMsg(self, msg):
         return msg['type'] == 'convert_file'
 
     def manageFile(self):
-        dirName = '{}_conversion_{}'.format(os.path.basename(self.mainFile.location).split('.')[0], datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
-        dirName = dirName.replace(':', '_')
-        dirName = dirName.replace('/', '_')
+        dirName = '{}_conversion_{}'.format(os.path.basename(self.mainFile.location).split('.')[0],
+                                            datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+        for char in [':', ' ', '/']:
+            dirName = dirName.replace(char, '_')
         if os.name == 'nt':
             os.mkdir('.\\' + dirName)
             shutil.copy(self.mainFile.location, "{}\\{}".format(dirName, os.path.basename(self.mainFile.location)))
@@ -156,6 +166,7 @@ class Server:
         except Exception:
             print("Error while obtaining the duration of your file.")
             sys.exit(-1)
+
         if len(self.workerList) > 0:
             numberOfParts = 0
             for worker in self.workerList:
@@ -188,7 +199,10 @@ class Server:
         allFilesList = os.listdir(os.path.dirname(self.mainFile.location))
         for file in allFilesList:
             if fileNameBare in file and file != fileName:
-                filesNamesList.append(os.path.dirname(self.mainFile.location) + '\\' + file)
+                if os.name == 'nt':
+                    filesNamesList.append(os.path.dirname(self.mainFile.location) + '\\' + file)
+                else:
+                    filesNamesList.append(os.path.dirname(self.mainFile.location) + '/' + file)
         return filesNamesList
 
     def getConvertMsg(self, filesNamesList):
@@ -208,18 +222,18 @@ class Server:
         self.listener_thread.start()
 
     def checkForFilesToSend(self, worker):
-        if worker.get_free_qsize() > 0:
-            if not self.toConvertFiles.empty():
-                return self.toConvertFiles.get()
-            else:
-                return False
-        else:
-            return False
-    
+        if worker.get_free_qsize() > 0 and not self.toConvertFiles.empty():
+            toConv = self.toConvertFiles.get()
+            # TODO remove in final
+            print(f'File to convert: {toConv}')
+            return toConv
+        return False
+
     def getConvFileToSend(self, fileMessage, worker):
         fileMessage['pid'] = worker.get_pid()
+        fileMessage['type'] = 'convert_file'
         return fileMessage
-    
+
     def concatenateConvertedFiles(self, msg):
         try:
             tmpLocation = self.mainFile.location
@@ -239,20 +253,24 @@ class Server:
         print("inputs: ", inputs)
         saveLocation += '/output.mp4'
         print("save location: ", saveLocation)
-        cmd = "ffmpeg -i   \"concat:" +  inputs + "\" -c copy " + saveLocation
+        cmd = "ffmpeg -i   \"concat:" + inputs + "\" -c copy " + saveLocation
         result = subprocess.Popen(cmd, shell=True)
         while result.poll() is None:
             continue
         if result.poll() == 0:
-            print("Files succesfully concatenated")
+            print("Files successfully concatenated")
             return True
         else:
             print("Error while concatenating files")
             return False
 
-user = UserCLI()
-user.setFileData()
-server = Server(user.fileData)
-server.getNewWorkers()
-#server.splitFile(partsDuration=server.manageFile())
-server.convertFiles()
+    def addConverted(self, msg):
+        pass
+
+
+if __name__ == '__main__':
+    user = UserCLI()
+    user.setFileData()
+    server = Server(user.fileData)
+    server.getNewWorkers()
+    server.manageFile()
