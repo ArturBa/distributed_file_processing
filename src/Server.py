@@ -234,8 +234,8 @@ class Server:
     def concatenateConvertedFiles(self, msg):
         try:
             tmpLocation = self.mainFile.location
-            saveLocation = msg['saveLocation']
-            extension = msg['fileExtension']
+            saveLocation = self.mainFile.saveLocation
+            extension = self.mainFile.fileExtension
         except Exception as e:
             print(e)
         allFilesList = os.listdir(os.path.dirname(tmpLocation))
