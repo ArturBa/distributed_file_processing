@@ -39,8 +39,6 @@ class Worker:
             self._pid = os.getpid()
         else:
             self._pid = pid
-        if not os.path.exists(tmp_directory):
-            os.makedirs(tmp_directory)
 
     def __eq__(self, other):
         return self._pid == other._pid
@@ -182,8 +180,13 @@ class Worker:
         file_data = pickle.loads(filedata_packed)
 
         file_name = os.path.basename(file_data.get('path')).split('.')[0]
+        dir_name = os.path.dirname(file_data.get('path'))
         ffmpeg_path = os.getenv('FFMPEG_PATH').split(';')
-        new_path = self.tmp_directory + '\\' + file_name + "_converted video." + file_data.get('fileExtension')
+        if os.name == 'nt':
+            new_path = dir_name + '\\' + file_name + "_converted video." + file_data.get('fileExtension')
+        else:
+            new_path = dir_name + '/' + file_name + "_converted video." + file_data.get(
+                'fileExtension')
         conv = Converter(ffmpeg_path=ffmpeg_path[0],
                          ffprobe_path=ffmpeg_path[1])
         convert = conv.convert(file_data.get('path'), new_path, {
