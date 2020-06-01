@@ -31,7 +31,7 @@ def parse_raw_output(msg):
 class Server:
     def __init__(self, mainFile, toConvertFiles=None, workerList=[], fileData=None):
         self.mainFile = mainFile
-        self.toConvertFiles = toConvertFiles
+        self.toConvertFiles = queue.Queue(maxsize = 100)
         self.workerList = workerList
         self.fileData = fileData
 
@@ -40,48 +40,45 @@ class Server:
             if not self.checkIfWorkerAlreadyAdded(worker):
                 self.workerList.append(worker)
 
-def new_worker_connection(self, connection):
-    #TODO: add breaks and exceptions
-    # receive new connection
-    while True:
-        msg = connection.recv(1024)
-        msg = parse_raw_input(msg)
-        if self.parseJoinMessage(msg):
-            worker = Worker(pid=msg['pid'], qsize=msg['qsize'])
-            if not self.checkIfWorkerAlreadyAdded(worker):
-                self.addNewWorker(worker)
-                print("successfully added new worker")
-                msg = self.getJoinAcceptMsg(msg)
+    def new_worker_connection(self, connection):
+        #TODO: add breaks and exceptions
+        # receive new connection
+        while True:
+            msg = connection.recv(1024)
+            msg = parse_raw_input(msg)
+            if self.parseJoinMessage(msg):
+                worker = Worker(pid=msg['pid'], qsize=msg['qsize'])
+                if not self.checkIfWorkerAlreadyAdded(worker):
+                    self.addNewWorker(worker)
+                    print("successfully added new worker")
+                    msg = self.getJoinAcceptMsg(msg)
+                    msg = parse_raw_output(msg)
+                    print("sending join accept message")
+                    connection.send(msg)
+        # request update from workers
+        while True:
+            self.parseFreeQSizeRequest(msg)
+            # get msg from a worker
+            msg = connection.recv(1024)
+            worker.set_free_qsize(msg['free_space'])
+            print("got queue size answer from worker")
+
+            found = self.checkForFilesToSend(worker)
+            if found:
+                print("Found splitted file to send")
+                msg = self.getConvFileToSend(found, worker)
                 msg = parse_raw_output(msg)
-                print("sending join accept message")
                 connection.send(msg)
-    # request update from workers
-    while True:
-        self.parseFreeQSizeRequest(msg)
-        # get msg from a worker
-        msg = connection.recv(1024)
-        # TODO update worker qsize
-        print("got queue size answer from worker")
- 
-        found = self.checkForFilesToSend()
-        if found[0]:
-            print("Found splitted file to send")
-            msg = self.getConvFileToSend(found[1])
-            msg = parse_raw_output(msg)
+
+            # Check if are converted files
+            self.parseConvFileMsg(msg)
+            print("Got converted file from {}", msg['pid'])
             connection.send(msg)
- 
-        # Check if are converted files
-        self.parseConvFileMsg(msg)
-        print("Got converted file from {}", msg['pid'])
-        connetion.send(msg)
-        msg = connection.receive(1025)
-        if msg['converted']
-            self.addConverted(msg)
-            if self.concatenateConvertedFiles(msg):
-                os.exit(0)
-            else:
-                pass
-            
+            msg = connection.receive(1024)
+            if msg['converted']
+                self.addConverted(msg)
+                if self.concatenateConvertedFiles(msg):
+                    os.exit(0)
 
     def checkIfWorkerAlreadyAdded(self, worker):
         for i in self.workerList:
@@ -145,7 +142,8 @@ def new_worker_connection(self, connection):
         files = self.manageSplitedFiles()
         messages = self.getConvertMsg(files)
         print(messages)
-        return messages
+        for message in messages:
+            self.toConvertFiles.put(message)
 
     def getPartsDuration(self):
         fileName = os.path.basename(self.mainFile.location)
@@ -187,16 +185,10 @@ def new_worker_connection(self, connection):
         fileName = os.path.basename(self.mainFile.location)
         fileNameBare = fileName.split('.')[0]
         filesNamesList = []
-        if '\\' in self.mainFile.location or '/' in self.mainFile.location:
-            allFilesList = os.listdir(os.path.dirname(self.mainFile.location))
-        else:
-            allFilesList = os.listdir(os.getcwd())
+        allFilesList = os.listdir(os.path.dirname(self.mainFile.location))
         for file in allFilesList:
             if fileNameBare in file and file != fileName:
-                if '\\' in self.mainFile.location or '/' in self.mainFile.location:
-                    filesNamesList.append(os.path.dirname(self.mainFile.location) + '\\' + file)
-                else:
-                    filesNamesList.append(os.getcwd() + '\\' + file)
+                filesNamesList.append(os.path.dirname(self.mainFile.location) + '\\' + file)
         return filesNamesList
 
     def getConvertMsg(self, filesNamesList):
@@ -215,11 +207,18 @@ def new_worker_connection(self, connection):
         self.listener_thread = threading.Thread(target=self.checkWorkers)
         self.listener_thread.start()
 
-    def checkForFilesToSend(self):
-        #TODO: use toConvertFiles, use 'pid' value
+    def checkForFilesToSend(self, worker):
+        if worker.get_free_qsize() > 0:
+            if not self.toConvertFiles.empty():
+                return self.toConvertFiles.get()
+            else:
+                return False
+        else:
+            return False
     
-    def getConvFileToSend(self, worker):
-        #TODO use toConvertFiles field
+    def getConvFileToSend(self, fileMessage, worker):
+        fileMessage['pid'] = worker.get_pid()
+        return fileMessage
     
     def concatenateConvertedFiles(self, msg):
         try:
