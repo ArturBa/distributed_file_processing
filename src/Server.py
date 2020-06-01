@@ -70,7 +70,6 @@ class Server:
                 found = self.checkForFilesToSend(worker)
                 print(f'Found {found}')
                 print(f'Conv queue: {self.toConvertFiles.qsize()}')
-                time.sleep(20)
                 if found:
                     print("Found splitted file to send")
                     msg = self.getConvFileToSend(found, worker)
@@ -224,8 +223,6 @@ class Server:
     def checkForFilesToSend(self, worker):
         if worker.get_free_qsize() > 0 and not self.toConvertFiles.empty():
             toConv = self.toConvertFiles.get()
-            # TODO remove in final
-            print(f'File to convert: {toConv}')
             return toConv
         return False
 
