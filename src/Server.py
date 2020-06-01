@@ -40,38 +40,44 @@ class Server:
             if not self.checkIfWorkerAlreadyAdded(worker):
                 self.workerList.append(worker)
 
-    def new_worker_connection(self, connection):
-        while True:
-            try:
-                msg = connection.recv(1024)
-                msg = parse_raw_input(msg)
-                found = self.checkForFilesToSend()
-                print(msg)
-                if self.parseJoinMessage(msg):
-                    worker = Worker(pid=msg['pid'], qsize=msg['qsize'])
-                    if not self.checkIfWorkerAlreadyAdded(worker):
-                        self.addNewWorker(worker)
-                        print("successfully added new worker")
-                        msg = self.getJoinAcceptMsg(msg)
-                        msg = parse_raw_output(msg)
-                        print("sending join accept message")
-                        connection.send(msg)
-                elif self.parseFreeQSizeRequest(msg):
-                    print("got queue size answer from worker")
-                elif found[0]:
-                    print("Found splitted file to send")
-                    msg = self.getConvFileToSend(found[1])
-                    msg = parse_raw_output(msg)
-                    connection.send(msg)
-                elif self.parseConvFileMsg(msg):
-                    print("Got converted file from {}", msg['pid'])
-                    if not self.checkIfMoreFiles(msg):
-                        print("Concatenating converted files")
-                        self.concatenateConvertedFiles(msg)
-                    else:
-                        print("Waiting for more files to be sent from remote workers")
-            except Exception as e:
-                pass
+def new_worker_connection(self, connection):
+    #TODO: add breaks and exceptions
+    # receive new connection
+    while True:
+        msg = connection.recv(1024)
+        msg = parse_raw_input(msg)
+        if self.parseJoinMessage(msg):
+            worker = Worker(pid=msg['pid'], qsize=msg['qsize'])
+            if not self.checkIfWorkerAlreadyAdded(worker):
+                self.addNewWorker(worker)
+                print("successfully added new worker")
+                msg = self.getJoinAcceptMsg(msg)
+                msg = parse_raw_output(msg)
+                print("sending join accept message")
+                connection.send(msg)
+    # request update from workers
+    while True:
+        self.parseFreeQSizeRequest(msg)
+        # get msg from a worker
+        msg = connection.recv(1024)
+        # TODO update worker qsize
+        print("got queue size answer from worker")
+ 
+        found = self.checkForFilesToSend()
+        if found[0]:
+            print("Found splitted file to send")
+            msg = self.getConvFileToSend(found[1])
+            msg = parse_raw_output(msg)
+            connection.send(msg)
+ 
+        # Check if are converted files
+        self.parseConvFileMsg(msg)
+        print("Got converted file from {}", msg['pid'])
+        connetion.send(msg)
+        msg = connection.receive(1025)
+        if msg['converted']
+            self.addConverted(msg)
+            self.concatenateConvertedFiles(msg)
 
     def checkIfWorkerAlreadyAdded(self, worker):
         for i in self.workerList:
