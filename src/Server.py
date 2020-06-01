@@ -202,6 +202,7 @@ class Server:
         return messages
 
     def convert(self):
+        #use 'pid' value
         msgs = self.manageFile()
         print(f'Starting conversions of files: {msgs}')
         while msgs:
@@ -218,10 +219,12 @@ class Server:
         self.listener_thread.start()
 
     def convertFiles(self):
+        #TODO: remove
         self.convert_thread = threading.Thread(target=self.convert)
         self.convert_thread.start()
         
     def checkForFilesToSend(self):
+        #TODO: use toConvertFiles
         for worker in self.workerList:
             if worker._conversion_files.qsize() > 0:
                 return (True, worker)
@@ -230,6 +233,7 @@ class Server:
         return (False, None)
     
     def getConvFileToSend(self, worker):
+        
         msg = dict()
         if worker._conversion_files.qsize() > 0:
                 try:
@@ -241,6 +245,7 @@ class Server:
         return msg
     
     def checkIfMoreFiles(self, msg):
+        #TODO to be removed
         act_parts = 0
         try:
             location = msg['saveLocation']
