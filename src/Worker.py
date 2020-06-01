@@ -203,7 +203,7 @@ class Worker:
                 'width': file_data.get('resolution')[0],
                 'height': file_data.get('resolution')[1],
                 'fps': 25
-            }})
+            }}, timeout=None)
         print("File conversion started")
         for timecode in convert:
             print(f'\rConverting ({timecode:.2f}) ...')
