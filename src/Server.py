@@ -77,7 +77,11 @@ def new_worker_connection(self, connection):
         msg = connection.receive(1025)
         if msg['converted']
             self.addConverted(msg)
-            self.concatenateConvertedFiles(msg)
+            if self.concatenateConvertedFiles(msg):
+                os.exit(0)
+            else:
+                pass
+            
 
     def checkIfWorkerAlreadyAdded(self, worker):
         for i in self.workerList:
@@ -234,16 +238,20 @@ def new_worker_connection(self, connection):
             else:
                 new_pipe = allFilesList[i] + "|"
                 inputs += new_pipe
-        inputs += allFilesList[:]
-        saveLocation += 'output.mp4'
-        cmd = ["ffmpeg", "-i",  "\"concat:", inputs, "\" -c", "copy",  saveLocation]
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        inputs += allFilesList[-1]
+        print("inputs: ", inputs)
+        saveLocation += '/output.mp4'
+        print("save location: ", saveLocation)
+        cmd = "ffmpeg -i   \"concat:" +  inputs + "\" -c copy " + saveLocation
+        result = subprocess.Popen(cmd, shell=True)
         while result.poll() is None:
-            pass
-        if p.poll() == 0:
+            continue
+        if result.poll() == 0:
             print("Files succesfully concatenated")
+            return True
         else:
             print("Error while concatenating files")
+            return False
 
 user = UserCLI()
 user.setFileData()
