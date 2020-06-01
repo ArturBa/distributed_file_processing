@@ -1,5 +1,8 @@
 import math
 import subprocess
+import sys
+import datetime
+import shutil
 
 from UserCLI import *
 from Worker import *
@@ -138,6 +141,16 @@ class Server:
         return 1
 
     def manageFile(self):
+        dirName = '{}_conversion_{}'.format(os.path.basename(self.mainFile.location).split('.')[0], datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+        dirName = dirName.replace(':', '_')
+        dirName = dirName.replace('/', '_')
+        os.mkdir('.\\' + dirName)
+        if os.name == 'nt':
+            shutil.copy(self.mainFile.location, "{}\\{}".format(dirName, os.path.basename(self.mainFile.location)))
+            self.mainFile.location = os.getcwd() + '\\' + dirName + '\\' + os.path.basename(self.mainFile.location)
+        else:
+            shutil.copy(self.mainFile.location, "{}/{}".format(dirName, os.path.basename(self.mainFile.location)))
+            self.mainFile.location = os.getcwd() + '/' + dirName + '/' + os.path.basename(self.mainFile.location)
         if self.splitFile(self.getPartsDuration()):
             print("File successfully splitted")
         else:
@@ -149,11 +162,15 @@ class Server:
 
     def getPartsDuration(self):
         fileName = os.path.basename(self.mainFile.location)
-        result = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of",
-                                 "default=noprint_wrappers=1:nokey=1", fileName],
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT)
-        filmDuration = float(result.stdout)
+        try:
+            result = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of",
+                                     "default=noprint_wrappers=1:nokey=1", fileName],
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT)
+            filmDuration = float(result.stdout)
+        except Exception:
+            print("Error while obtaining the duration of your file.")
+            sys.exit(-1)
         if len(self.workerList) > 0:
             numberOfParts = 0
             for worker in self.workerList:
@@ -167,7 +184,7 @@ class Server:
             else:
                 return 0
         else:
-            return 0
+            raise Exception("No workers detected")
 
     def splitFile(self, partsDuration):
         cmd = ['python', 'videoSplit.py', '-f', self.mainFile.location, '-s', str(partsDuration)]
@@ -190,7 +207,7 @@ class Server:
         for file in allFilesList:
             if fileNameBare in file and file != fileName:
                 if '\\' in self.mainFile.location or '/' in self.mainFile.location:
-                    filesNamesList.append(os.path.dirname(self.mainFile.location + '\\\\' + file))
+                    filesNamesList.append(os.path.dirname(self.mainFile.location) + '\\' + file)
                 else:
                     filesNamesList.append(os.getcwd() + '\\' + file)
         return filesNamesList
@@ -287,5 +304,5 @@ user = UserCLI()
 user.setFileData()
 server = Server(user.fileData)
 server.getNewWorkers()
-server.splitFile(partsDuration=server.getPartsDuration())
+#server.splitFile(partsDuration=server.manageFile())
 server.convertFiles()
