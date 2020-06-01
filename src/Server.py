@@ -1,8 +1,8 @@
-import datetime
 import math
-import shutil
 import subprocess
 import sys
+import datetime
+import shutil
 
 from UserCLI import *
 from Worker import *
@@ -255,13 +255,13 @@ class Server:
     
     def getConvFileToSend(self, worker):
         msg = dict()
-        if len(worker.conversion_files) > 0:
-            try:
-                msg = worker.conversion_files.pop(0)
-                return msg
-            except Exception as e:
-                print(e)
-                pass
+        if len(worker._conversion_files) > 0:
+                try:
+                    msg = worker._conversion_files.pop(0)
+                    return msg
+                except Exception as e:
+                    print(e)
+                    pass
         return msg
     
     def checkIfMoreFiles(self, msg):
