@@ -85,7 +85,7 @@ class Server:
                     self.addConverted()
                     if self.allDone():
                         if self.concatenateConvertedFiles(msg):
-                            sys.exit(0)
+                            os._exit(0)
             except Exception as e:
                 print(e)
 
