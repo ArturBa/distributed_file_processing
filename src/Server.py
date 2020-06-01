@@ -144,11 +144,12 @@ class Server:
         dirName = '{}_conversion_{}'.format(os.path.basename(self.mainFile.location).split('.')[0], datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
         dirName = dirName.replace(':', '_')
         dirName = dirName.replace('/', '_')
-        os.mkdir('.\\' + dirName)
         if os.name == 'nt':
+            os.mkdir('.\\' + dirName)
             shutil.copy(self.mainFile.location, "{}\\{}".format(dirName, os.path.basename(self.mainFile.location)))
             self.mainFile.location = os.getcwd() + '\\' + dirName + '\\' + os.path.basename(self.mainFile.location)
         else:
+            os.mkdir('./' + dirName)
             shutil.copy(self.mainFile.location, "{}/{}".format(dirName, os.path.basename(self.mainFile.location)))
             self.mainFile.location = os.getcwd() + '/' + dirName + '/' + os.path.basename(self.mainFile.location)
         if self.splitFile(self.getPartsDuration()):
