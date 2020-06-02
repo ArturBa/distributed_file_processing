@@ -33,6 +33,7 @@ class Server:
     def __init__(self, mainFile, workerList=[], fileData=None):
         self.mainFile = mainFile
         self.toConvertFiles = queue.Queue(maxsize=100)
+        self.convertedFiles = queue.Queue(maxsize=100)
         self.workerList = workerList
         self.fileData = fileData
         self.parts = 0
@@ -81,11 +82,11 @@ class Server:
                 connection.send(parse_raw_output({'type': 'send_file', 'pid': worker.get_pid()}))
                 msg = parse_raw_input(connection.recv(1024))
                 if msg['converted']:
-                    print("Got converted file from {}".format(worker.get_pid()))
-                    self.addConverted()
+                    print("Got converted file from {}: {}".format(worker.get_pid(), msg))
+                    self.addConverted(msg)
                     if self.allDone():
-                        if self.concatenateConvertedFiles(msg):
-                            os._exit(0)
+                        self.concatenateConvertedFiles()
+                        os._exit(0)
             except Exception as e:
                 print(e)
 
@@ -233,27 +234,19 @@ class Server:
         fileMessage['type'] = 'convert_file'
         return fileMessage
 
-    def concatenateConvertedFiles(self, msg):
+    def concatenateConvertedFiles(self):
         try:
-            tmpLocation = self.mainFile.location
             saveLocation = self.mainFile.saveLocation
-            extension = self.mainFile.fileExtension
         except Exception as e:
             print(e)
             return False
 
-        # TODO add windows support
-        tmpLocation = tmpLocation[:tmpLocation.rfind('/')]
-
-        allFilesList = os.listdir(os.path.dirname(tmpLocation))
         inputs = ""
-        for i in range(len(allFilesList) - 1):
-            if not allFilesList[i].endswith(extension):
-                pass
-            else:
-                new_pipe = tmpLocation + allFilesList[i] + "|"
-                inputs += new_pipe
-        inputs += allFilesList[-1]
+        while not self.convertedFiles.empty():
+            msg = self.convertedFiles.get()
+            inputs += msg.get('file_path') + ' | '
+
+        inputs = inputs[:-1]
         print("inputs: ", inputs)
         saveLocation += '/output.mp4'
         print("save location: ", saveLocation)
@@ -263,16 +256,14 @@ class Server:
             continue
         if result.poll() == 0:
             print("Files successfully concatenated")
-            return True
         else:
             print("Error while concatenating files")
-            return False
 
-    def addConverted(self):
-        self.completed += 1
+    def addConverted(self, msg):
+        self.convertedFiles.put(msg)
 
     def allDone(self):
-        return self.completed == self.parts
+        return self.convertedFiles.qsize() == self.parts
 
 
 if __name__ == '__main__':
