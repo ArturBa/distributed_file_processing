@@ -15,6 +15,6 @@ export FFMPEG_PATH = "/usr/bin/ffmpeg;/usr/bin/ffprobe"
 ```
 
 To install necessary libraries for python run:
-'''shell script
+```shell script
 pip install -r requirements.txt
-'''
+```
