@@ -242,7 +242,7 @@ class Server:
 
         inputs = inputs[:inputs.rfind('|')]
         print("inputs: ", inputs)
-        saveLocation = self.mainFile.saveLocation + '/output.mp4'
+        saveLocation = self.mainFile.saveLocation + '/output.' + self.mainFile.fileExtension
         print("save location: ", saveLocation)
         cmd = "ffmpeg -i   \"concat:" + inputs + "\" -c copy " + saveLocation
         result = subprocess.Popen(cmd, shell=True)
