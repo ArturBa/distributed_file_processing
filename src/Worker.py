@@ -185,10 +185,9 @@ class Worker:
         dir_name = os.path.dirname(file_data.get('path'))
         ffmpeg_path = os.getenv('FFMPEG_PATH').split(';')
         if os.name == 'nt':
-            new_path = dir_name + '\\' + file_name + "_converted video." + file_data.get('fileExtension')
+            new_path = dir_name + '\\' + file_name + "_converted." + file_data.get('fileExtension')
         else:
-            new_path = dir_name + '/' + file_name + "_converted video." + file_data.get(
-                'fileExtension')
+            new_path = dir_name + '/' + file_name + "_converted." + file_data.get('fileExtension')
         conv = Converter(ffmpeg_path=ffmpeg_path[0],
                          ffprobe_path=ffmpeg_path[1])
         convert = conv.convert(file_data.get('path'), new_path, {

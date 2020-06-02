@@ -235,20 +235,14 @@ class Server:
         return fileMessage
 
     def concatenateConvertedFiles(self):
-        try:
-            saveLocation = self.mainFile.saveLocation
-        except Exception as e:
-            print(e)
-            return False
-
         inputs = ""
         while not self.convertedFiles.empty():
             msg = self.convertedFiles.get()
-            inputs += msg.get('file_path') + ' | '
+            inputs += msg.get('file_path') + '|'
 
-        inputs = inputs[:-1]
+        inputs = inputs[:inputs.rfind('|')]
         print("inputs: ", inputs)
-        saveLocation += '/output.mp4'
+        saveLocation = self.mainFile.saveLocation + '/output.mp4'
         print("save location: ", saveLocation)
         cmd = "ffmpeg -i   \"concat:" + inputs + "\" -c copy " + saveLocation
         result = subprocess.Popen(cmd, shell=True)
