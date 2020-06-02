@@ -149,5 +149,4 @@ dmypy.json
 cython_debug/
 
 # Ignore splited files
-epsg1-*
-epsg1_*
+BigBuckBunny_*
